@@ -19,7 +19,9 @@ object PostRender {
      */
     fun afterRender(block: () -> Unit) {
         pending += block
-        // No render means no drain, and a game that renders only on demand would never reach one.
+        // No render means no drain, and a game that renders only on demand would never reach one. The null-safe
+        // call is load-bearing rather than defensive: Gdx.graphics is null with no running application, so
+        // dropping it breaks every test that drains by hand.
         Gdx.graphics?.requestRendering()
     }
 

@@ -7,7 +7,13 @@ import com.runt9.kgdf.api.observe.postRenderHop
 import java.io.ByteArrayOutputStream
 
 object Screenshot {
-    /** The first frame drawn after this is called, so it shows every state change that has already been made. */
+    /**
+     * The first frame drawn after this is called, so it shows every state change that has already been made.
+     *
+     * The PNG encode runs inside the hop, holding the frame open longer than the pixel read needs. Moving it out
+     * means handing the Pixmap back across the hop boundary, where a timeout leaks it with nothing left to
+     * dispose it.
+     */
     suspend fun capture(): ByteArray = postRenderHop {
         val pixmap = Pixmap.createFromFrameBuffer(0, 0, Gdx.graphics.backBufferWidth, Gdx.graphics.backBufferHeight)
         try {

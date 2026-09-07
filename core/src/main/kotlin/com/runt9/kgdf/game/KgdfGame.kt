@@ -46,7 +46,12 @@ abstract class KgdfGame : KtxGame<KtxScreen>() {
         setInitialScreen()
     }
 
-    /** The drain must follow the screen's draw: before it, the back buffer still holds the previous frame. */
+    /**
+     * The drain must follow the screen's draw: before it, the back buffer still holds the previous frame.
+     *
+     * A subclass overriding this has to draw *before* calling super, never after. Anything drawn after the drain
+     * misses the frame the drain was answering, which is the staleness this exists to remove.
+     */
     override fun render() {
         super.render()
         PostRender.drain()

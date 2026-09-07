@@ -4,8 +4,11 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
 /**
- * [PostRender] is process-global with no teardown, so each test drains first rather than trusting the previous
- * one to have left the queue empty.
+ * [PostRender] is process-global with no teardown, so each test empties the queue first rather than trusting the
+ * previous one to have left it empty.
+ *
+ * Draining *runs* whatever is left rather than discarding it, so a block a failing test abandoned executes here.
+ * Keep every block in this file touching only its own locals, or one test's leftovers become another's failure.
  */
 class PostRenderTest : FunSpec({
     beforeTest { PostRender.drain() }
