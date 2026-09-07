@@ -3,10 +3,13 @@ title: Development API Harness
 type: note
 permalink: api-harness/overview
 tags: [ api, harness, rendering, testing ]
-verified: 2026-08-30
-branch: mcp-harness
+verified: 2026-09-07
+branch: claude/226-tier-b
 coverage: partial
 sources:
+  - core/src/main/kotlin/com/runt9/kgdf/game/PostRender.kt
+  - core/src/main/kotlin/com/runt9/kgdf/game/KgdfGame.kt
+  - core/src/test/kotlin/com/runt9/kgdf/game/PostRenderTest.kt
   - api/build.gradle.kts
   - api/src/main/kotlin/com/runt9/kgdf/api/HarnessServer.kt
   - api/src/main/kotlin/com/runt9/kgdf/api/controller/ApiController.kt
@@ -23,7 +26,7 @@ sources:
 
 # Development API Harness
 
-> **Incomplete and permanently WIP.** These notes record what has been investigated, not what exists. Anything not mentioned here is almost certainly "not looked at yet" rather than "not there" or "not a problem". Every main source file in the `api` module, its one test, and `api/build.gradle.kts` were read in full. Not covered: Ktor's own behavior beyond these call sites (when it applies a server module, what CIO does on shutdown), and the `core` types cited only where they appear here — `InputCode`, `DialogView`, `DialogManager`, `KgdfGame`, `UiScreen` — which were not opened. Nothing here says how a consumer should name its screens, shape its DTOs, decide what a response may expose, or keep this module out of a shipped artifact; all of that is the consumer's.
+> **Incomplete and permanently WIP.** These notes record what has been investigated, not what exists. Anything not mentioned here is almost certainly "not looked at yet" rather than "not there" or "not a problem". Every main source file in the `api` module, its one test, and `api/build.gradle.kts` were read in full, plus the `core` post-render hook the screenshot path now depends on. Not covered: Ktor's own behavior beyond these call sites (when it applies a server module, what CIO does on shutdown), and the `core` types cited only where they appear here — `InputCode`, `DialogView`, `DialogManager`, `UiScreen` — which were not opened. Nothing here says how a consumer should name its screens, shape its DTOs, decide what a response may expose, or keep this module out of a shipped artifact; all of that is the consumer's.
 
 The `api` module is a development-only HTTP harness: an agent or script drives and observes a running game over loopback. It is a leaf — `core` does not depend on it, and nothing inside kgdfw calls any of its entry points, so every one of them is invoked by a consumer.
 
@@ -35,6 +38,8 @@ Read this before adding an endpoint, an `ApiController`, or anything that touche
 - [trap] **The failure mode is process death, not an exception.** Setting a ViewModel binding rebuilds its Scene2D layout synchronously, and a rebuild can allocate a texture. That is an OpenGL call, and it aborts the JVM outright when it lands on a request thread instead of the one holding the GL context — nothing catches it and nothing points back at the endpoint (`ApiController.kt:21-23`) #silent-failure.
 - [trap] It fails *late*. An endpoint that skips the hop is correct for every request whose binding rebuild happens not to allocate, so it passes review, passes manual use, and dies later against different state (`ScreenApiController.kt:40-42`).
 - [invariant] **Nesting a hop is prevented by the types, not by discipline.** `renderHop` is `suspend` (`ShownScreen.kt:26`) while `onScreen` takes `block: C.() -> R` (`ScreenApiController.kt:33`) and `onRender` takes `block: () -> R` (`ApiController.kt:25`) — both non-suspend, so a hop inside a hop does not compile. It would otherwise deadlock until `RENDER_TIMEOUT`, the inner call waiting on a frame the outer block still holds. **Give either wrapper a suspend block and that deadlock becomes reachable**, which is the reason the signatures are worth preserving deliberately rather than tidying. The same applies to `respondApi`, which hops internally to read `ApiScreen.current` (`ApiResult.kt:23-24`).
+- [fact] There is a second hop, `postRenderHop`, for anything reading what was *drawn* (`ShownScreen.kt:39-43`). It resolves through `PostRender.afterRender`, a `core` queue that `KgdfGame.render` drains after the screen's draw and before the buffers swap (`PostRender.kt:20-33`, `KgdfGame.kt:50-53`) — the only point where a back-buffer read sees the current frame. It shares `RENDER_TIMEOUT` and, unlike a raw `PostRender.afterRender`, returns an exception to the caller instead of letting it escape into the game loop.
+- [trap] `PostRender.drain` runs only what was queued when it started, so a block that schedules more work is answered next frame. Rewriting it to drain until empty runs that work a frame early, and never terminates for a block that reschedules itself; `PostRenderTest.kt:23-32` pins it.
 - [fact] `RENDER_TIMEOUT` is 10 seconds, deliberately generous — a timeout here means the render loop stopped, which is worth surfacing rather than waiting out (`ShownScreen.kt:16-17`).
 - [history] `respondApi` gained its hop in `12933ca` (2026-08-30); before it, that function read `ApiScreen.current` — which walks Scene2D — straight from the request thread, on **every** response. That was the last place the harness touched Scene2D without a hop, so as of that commit the rule holds with no exception left in the module.
 - [invariant] `ApiController.settle()` is `withTimeout(60.seconds) { work.awaitIdle() }` and **suspends rather than blocks**: the work it waits on only advances from the render loop, so blocking would occupy the very thread that has to finish it (`ApiController.kt:40-44`) #order-dependent. `work` is an abstract `WorkSource` the consumer supplies; what `awaitIdle` guarantees, and why counting on submit is what makes a single read a fixpoint, is in [[Events, Async and State]].
@@ -108,7 +113,9 @@ flowchart TD
 
 ## Observing and driving
 
-- [trap] `Screenshot.capture()` returns the **previous** frame, not the current one — posted work drains before the render, so anything that changed this frame is not in the image yet. Read state rather than pixels (`Screenshot.kt:10-14`) #order-dependent.
+- [fact] `Screenshot.capture()` goes through `postRenderHop` rather than `renderHop`, so the image is the first frame drawn *after* the call, and reflects every state change already made (`Screenshot.kt:10-11`).
+- [history] It used `renderHop` until 2026-09-07 and was documented as returning the previous frame. A posted runnable runs after `glfwSwapBuffers` — `Lwjgl3Application.loop` drains application runnables at lines 196-198 of the 1.14.2 source, after `window.update()` has already rendered and swapped — so a `glReadPixels` there reads whatever the swap left in the back buffer.
+- [fact] That staleness did **not** reproduce under WSLg. Stamping each frame's own id into pixel (0,0) and reading it back through both hops gave `lagFrames=0` on five samples each, with a deliberate +7 offset control correctly reporting 244 on both. The swap preserves back-buffer contents here, so a post-swap read still sees the frame just drawn. The change removes the dependence on that platform behavior; it did not fix an observed break #measured.
 - [fact] `setFlipY(true)` is not cosmetic: `glReadPixels` hands rows back bottom-up, and without it the PNG is upside down (`Screenshot.kt:26-27`).
 - [decision] `SynthesizedInput` feeds the injected `InputMultiplexer`, the same thing a real device feeds, so a click a dialog would have swallowed is swallowed here too and stop-at-first-consumer ordering is preserved. Reaching past it into a screen's own handler would drive a path no player can reach (`SynthesizedInput.kt:8-14`).
 - [fact] `press` holds modifiers down, touches down and up, then releases them, all inside one render hop, so synthetic held state never spans a frame and cannot leak into what the player does next (`SynthesizedInput.kt:21-30`).

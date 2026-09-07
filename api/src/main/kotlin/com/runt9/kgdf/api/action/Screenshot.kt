@@ -3,15 +3,12 @@ package com.runt9.kgdf.api.action
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.PixmapIO
-import com.runt9.kgdf.api.observe.renderHop
+import com.runt9.kgdf.api.observe.postRenderHop
 import java.io.ByteArrayOutputStream
 
 object Screenshot {
-    /**
-     * **Returns the previous frame, not the current one.** Posted work drains before the render, so anything
-     * that changed this frame is not in the image yet. Read state rather than the pixels.
-     */
-    suspend fun capture(): ByteArray = renderHop {
+    /** The first frame drawn after this is called, so it shows every state change that has already been made. */
+    suspend fun capture(): ByteArray = postRenderHop {
         val pixmap = Pixmap.createFromFrameBuffer(0, 0, Gdx.graphics.backBufferWidth, Gdx.graphics.backBufferHeight)
         try {
             pixmap.toPng()

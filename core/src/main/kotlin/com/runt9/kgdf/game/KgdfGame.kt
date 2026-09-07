@@ -46,6 +46,12 @@ abstract class KgdfGame : KtxGame<KtxScreen>() {
         setInitialScreen()
     }
 
+    /** The drain must follow the screen's draw: before it, the back buffer still holds the previous frame. */
+    override fun render() {
+        super.render()
+        PostRender.drain()
+    }
+
     protected abstract fun addScreens()
     protected abstract fun setInitialScreen()
 

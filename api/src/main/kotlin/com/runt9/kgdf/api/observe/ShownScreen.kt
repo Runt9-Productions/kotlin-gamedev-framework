@@ -5,12 +5,13 @@ import com.badlogic.gdx.InputMultiplexer
 import com.badlogic.gdx.scenes.scene2d.Stage
 import com.runt9.kgdf.ext.lazyInject
 import com.runt9.kgdf.game.KgdfGame
+import com.runt9.kgdf.game.PostRender
 import com.runt9.kgdf.ui.controller.Controller
 import com.runt9.kgdf.ui.core.UiScreen
 import com.runt9.kgdf.ui.view.DialogView
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeout
 import ktx.async.onRenderingThread
-import kotlin.reflect.KClass
 import kotlin.time.Duration.Companion.seconds
 
 /** Generous: a timeout here means the render loop stopped, which is worth surfacing rather than waiting out. */
@@ -27,6 +28,20 @@ internal val RENDER_TIMEOUT = 10.seconds
  * be written — keep it that way. Give either one a suspend block and the deadlock becomes reachable.
  */
 suspend fun <T> renderHop(block: () -> T): T = withTimeout(RENDER_TIMEOUT) { onRenderingThread { block() } }
+
+/**
+ * [renderHop] for anything that reads what was *drawn* rather than what is in memory. A plain hop runs between
+ * frames, after the buffers have swapped, so the back buffer it sees is one frame behind; this one runs at the end
+ * of the next frame's render, before the swap.
+ *
+ * [block] is a non-suspend block for the same reason [renderHop]'s is. Anything it throws comes back to the caller
+ * rather than escaping into the game loop.
+ */
+suspend fun <T> postRenderHop(block: () -> T): T = withTimeout(RENDER_TIMEOUT) {
+    suspendCancellableCoroutine { continuation ->
+        PostRender.afterRender { continuation.resumeWith(runCatching(block)) }
+    }
+}
 
 /**
  * Which screen the player is on. **Screen here means screen or topmost open dialog**, which is what a player
