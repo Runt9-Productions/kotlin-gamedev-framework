@@ -26,6 +26,9 @@ class BasicStage(private val origWidth: Float, private val origHeight: Float, vi
         draw()
     }
 
+    /** Copies first: [DialogController.hide] removes the dialog from [activeDialogs] as it goes. */
+    fun hideAllDialogs() = activeDialogs.toList().forEach { it.hide() }
+
     fun setView(view: View) {
         this.currentView = view
         (view as Group).run {
