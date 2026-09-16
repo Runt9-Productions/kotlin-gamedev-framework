@@ -8,14 +8,12 @@ import kotlin.random.Random
 @Serializable
 class SeededRandomizer(val seed: Int, var rngCounter: Int) {
 
-    // Don't serialize the rng, but store how many times we've grabbed the "next something" and when we deserialize the state, spin the rng back to its previous state
+    // Only the counter is saved, and construction replays it as that many generator steps. It must count steps rather
+    // than calls, or a reload resumes at a different stream position: one shuffle of n alone takes n - 1 steps.
     @Transient
-    private val rng = Random(seed).apply { repeat(rngCounter) { nextInt() } }
+    private val rng: Random = StepCountingRandom(Random(seed).apply { repeat(rngCounter) { nextInt() } })
 
-    fun <T> randomizeBasic(action: (Random) -> T): T {
-        rngCounter++
-        return action(rng)
-    }
+    fun <T> randomizeBasic(action: (Random) -> T): T = action(rng)
 
     fun <T : Comparable<T>> randomize(lucky: Boolean = false, action: (Random) -> T): T {
         val first = randomizeBasic(action)
@@ -36,4 +34,13 @@ class SeededRandomizer(val seed: Int, var rngCounter: Int) {
 
     fun <T> randomFromCollection(list: Collection<T>) = randomizeBasic { list.random(it) }
     fun <T : Comparable<T>> randomFromCollection(list: Collection<T>, lucky: Boolean = false) = randomize(lucky) { list.random(it) }
+
+    // Overrides nextBits and nothing else. Every other Random method reaches the generator through it, and a
+    // seeded generator's nextBits is exactly one step, so overriding another method would draw uncounted.
+    private inner class StepCountingRandom(private val generator: Random) : Random() {
+        override fun nextBits(bitCount: Int): Int {
+            rngCounter++
+            return generator.nextBits(bitCount)
+        }
+    }
 }
