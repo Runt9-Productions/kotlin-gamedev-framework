@@ -319,6 +319,8 @@ Use `_legacy/` or `_superseded/` for a document kept only until its content is e
 - [[Events, Async and State]] — the EventBus, the named single-thread contexts, and `GameStateService`'s
   load/save/update contract.
 - [[View Binding]] — `ViewModel.Binding`, `Updatable`, and the binding helpers.
+- [[Seeded Randomizer]] — the reproducible stream that persists as a counter, why that counter must count
+  generator steps, and why an intact counter round-trip proves nothing. Read before asserting on `rngCounter`.
 - [[Logging]] — `kgdfLogger`, levels, the swappable sink, and how tests capture output. Read before adding a
   log call in a hot path.
 - [[Development API Harness]] — the `api` module: the render-thread hop every endpoint must cross, screen
