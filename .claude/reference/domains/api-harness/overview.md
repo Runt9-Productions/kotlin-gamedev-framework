@@ -26,7 +26,7 @@ sources:
 
 # Development API Harness
 
-> **Incomplete and permanently WIP.** These notes record what has been investigated, not what exists. Anything not mentioned here is almost certainly "not looked at yet" rather than "not there" or "not a problem". Every main source file in the `api` module, its one test, and `api/build.gradle.kts` were read in full, plus the `core` post-render hook the screenshot path now depends on. Not covered: Ktor's own behavior beyond these call sites (when it applies a server module, what CIO does on shutdown), and the `core` types cited only where they appear here — `InputCode`, `DialogView`, `DialogManager`, `UiScreen` — which were not opened. Nothing here says how a consumer should name its screens, shape its DTOs, decide what a response may expose, or keep this module out of a shipped artifact; all of that is the consumer's.
+> **Scope.** Every main source file in the `api` module, its one test, and `api/build.gradle.kts` were read in full, plus the `core` post-render hook the screenshot path now depends on. Not covered: Ktor's own behavior beyond these call sites (when it applies a server module, what CIO does on shutdown), and the `core` types cited only where they appear here — `InputCode`, `DialogView`, `DialogManager`, `UiScreen` — which were not opened. Nothing here says how a consumer should name its screens, shape its DTOs, decide what a response may expose, or keep this module out of a shipped artifact; all of that is the consumer's.
 
 The `api` module is a development-only HTTP harness: an agent or script drives and observes a running game over loopback. It is a leaf — `core` does not depend on it, and nothing inside kgdfw calls any of its entry points, so every one of them is invoked by a consumer.
 

@@ -13,7 +13,7 @@ id: stable-external-identifier
 
 # Human Readable Name
 
-> **Incomplete and permanently WIP.** These notes record what has been investigated, not what exists. Anything not mentioned here is almost certainly "not looked at yet" rather than "not there" or "not a problem". REPLACE THIS SENTENCE with one or two naming what *this* note does not cover — for a play note that means the evidence that is missing (which characters, difficulties, rounds), not the code that was not read.
+> **Scope.** REPLACE THIS SENTENCE with what *this* note covers and, specifically, what it does not. For a play note that means the evidence that is missing (which characters, difficulties, rounds), not the code that was not read.
 
 One paragraph on what this entity is and why it has a note. An entity note earns its
 place by holding something a catalog does not: how the thing is actually used, judged,
@@ -38,7 +38,7 @@ CHECKLIST — delete this block before saving.
       we do", it is a topic and belongs in domains/ instead.
   [ ] permalink = the path under .claude/reference/, minus .md. Unlike domains/,
       the leading directory is KEPT: entities/<kind>/<slug>.
-  [ ] REQUIRED: title, type, permalink, tags, verified, coverage, and the banner.
+  [ ] REQUIRED: title, type, permalink, tags, verified, coverage, and the Scope line.
       OPTIONAL: branch, sources, id — delete the ones that do not apply rather
       than leaving them blank.
   [ ] tags carry what would otherwise be structured metadata: the kind (sticker,

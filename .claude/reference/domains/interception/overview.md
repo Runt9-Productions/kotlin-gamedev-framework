@@ -16,7 +16,7 @@ sources:
 
 # Interception
 
-> **Incomplete and permanently WIP.** These notes record what has been investigated, not what exists. Anything not mentioned here is almost certainly "not looked at yet" rather than "not there" or "not a problem". All five files in `com.runt9.kgdf.intercept` were read in full. Not covered: how any consuming project defines its own hooks and contexts (that belongs in the consumer's KB), and the `BaseInterceptorHook.ON_UI_SCALE_CHANGE` path, which is named but never traced to a caller.
+> **Scope.** All five files in `com.runt9.kgdf.intercept` were read in full. Not covered: how any consuming project defines its own hooks and contexts (that belongs in the consumer's KB), and the `BaseInterceptorHook.ON_UI_SCALE_CHANGE` path, which is named but never traced to a caller.
 
 The extension point the whole framework hangs off: a consumer registers interceptors against a hook and a context type, and dispatch runs the ones that match. Read this before adding a hook, a context, or anything that registers an interceptor.
 

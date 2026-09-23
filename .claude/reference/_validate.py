@@ -45,6 +45,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parent
 README = ROOT / "README.md"
 TEMPLATE = ROOT / "_template.md"
@@ -72,15 +74,19 @@ def _repo_root() -> Path:
 
 REPO = _repo_root()
 
-# A banner is the shared boilerplate (~210 chars) plus a note-specific scope
-# sentence. Anything at or below this length is boilerplate with nothing added,
-# which is the failure mode the banner exists to prevent.
-MIN_BANNER_CHARS = 300
-BANNER_OPENER = "**Incomplete and permanently WIP.**"
+# The blockquote after the H1 is the note's own statement of what it does not
+# cover. The floor rules out a stub, not a terse note: real scope paragraphs run
+# 173 chars and up. The template's own scope text is long enough to pass, so
+# PLACEHOLDERS is what catches an unedited copy.
+SCOPE_OPENER = "**Scope.**"
+MIN_SCOPE_CHARS = 100
+# Retired shared boilerplate. Any note still carrying it was missed by the sweep
+# that replaced it with SCOPE_OPENER.
+RETIRED_BANNER_OPENER = "**Incomplete and permanently WIP.**"
 
 PLACEHOLDERS = (
     "YYYY-MM-DD",
-    "REPLACE THIS SENTENCE",
+    "REPLACE THIS",
     "the-branch-you-read-the-code-on",
     "area/slug",
     "Human Readable Name",
@@ -96,7 +102,7 @@ PROJECT_OPTIONAL = {"verified", "branch", "status", "release", "opened",
 
 # entities/ notes are one-per-member-of-an-enumerable-set (an item, a recording),
 # so unlike a topic note they have a uniform natural schema. They are durable and
-# trusted like domains/ notes, so they keep `coverage` and the WIP banner — "we
+# trusted like domains/ notes, so they keep `coverage` and the scope blockquote — "we
 # have only seen this item in one recording" is the single most important caveat
 # such a note carries.
 #
@@ -117,8 +123,9 @@ PROJECT_OPTIONAL = {"verified", "branch", "status", "release", "opened",
 ENTITY_REQUIRED = {"title", "type", "permalink", "tags", "verified", "coverage"}
 ENTITY_OPTIONAL = {"branch", "sources", "id"}
 
-# Keys whose value is a YAML block sequence rather than a scalar.
-LIST_KEYS = {"sources"}
+# Keys whose value must be a non-empty list of strings. Flow (`[a, b]`) and block
+# (`- a`) spellings are the same YAML and both pass; Basic Memory writes block.
+LIST_KEYS = {"sources", "tags"}
 
 # Ticket cross-references are an open but well-formed namespace, so they are
 # accepted by pattern instead of being listed in README.md's tag table. The
@@ -140,34 +147,38 @@ class Problem:
 
 
 def parse_frontmatter(lines: list[str]) -> tuple[dict[str, object], int]:
-    """Return (mapping, index of the closing ---), or ({}, -1) if malformed.
+    """Return (mapping, index of the closing ---), or ({}, -1) if there is no
+    delimited block. Raises yaml.YAMLError if the block is not a YAML mapping.
 
-    Scalars are strings. A key with an empty value followed by indented `- item`
-    lines becomes a list, which is how `sources:` is written — those path lists
-    are far too long to keep readable on one line.
+    Values arrive YAML-typed: an unquoted date is a `datetime.date`, a quoted one
+    a `str`. Checks must be semantic, never about layout, because Basic Memory
+    re-serializes frontmatter with `yaml.dump` and the two must agree.
     """
     if not lines or lines[0].strip() != "---":
         return {}, -1
-    out: dict[str, object] = {}
-    pending: str | None = None
     for i, raw in enumerate(lines[1:], start=1):
         if raw.strip() == "---":
-            return out, i
-        item = re.match(r"\s+-\s+(.*)$", raw)
-        if pending and item:
-            out.setdefault(pending, [])
-            out[pending].append(item.group(1).strip())  # type: ignore[union-attr]
-            continue
-        pending = None
-        if ":" in raw:
-            key, _, value = raw.partition(":")
-            key, value = key.strip(), value.strip()
-            if not value:
-                pending = key
-                out.setdefault(key, [])
-            else:
-                out[key] = value
-    return out, -1
+            data = yaml.safe_load("\n".join(lines[1:i]))
+            if data is None:
+                return {}, i
+            if not isinstance(data, dict):
+                raise yaml.YAMLError(f"frontmatter is a {type(data).__name__}, not a mapping")
+            return {str(k): v for k, v in data.items()}, i
+    return {}, -1
+
+
+def as_date(value: object) -> dt.date | None:
+    """`value` as a date if it is an ISO YYYY-MM-DD date, bare or quoted."""
+    if isinstance(value, dt.datetime):
+        return None
+    if isinstance(value, dt.date):
+        return value
+    if isinstance(value, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        try:
+            return dt.date.fromisoformat(value)
+        except ValueError:
+            return None
+    return None
 
 
 def spec_categories() -> set[str]:
@@ -220,17 +231,22 @@ class Note:
     def __init__(self, path: Path):
         self.path = path
         self.lines = path.read_text(encoding="utf-8").splitlines()
-        self.fm, self.fm_end = parse_frontmatter(self.lines)
+        self.fm_error: yaml.YAMLError | None = None
+        try:
+            self.fm, self.fm_end = parse_frontmatter(self.lines)
+        except yaml.YAMLError as exc:
+            self.fm, self.fm_end, self.fm_error = {}, -1, exc
         self.tree = path.relative_to(ROOT).parts[0]
         self.is_domain = self.tree == "domains"
         self.is_entity = self.tree == "entities"
-        self.title: str | None = self.fm.get("title")  # type: ignore[assignment]
+        title = self.fm.get("title")
+        self.title: str | None = None if title is None else str(title)
         self.links: set[str] = set()
         self.relations: set[str] = set()   # wikilink targets in ## Relations only
 
     def sources(self) -> list[str]:
         value = self.fm.get("sources")
-        return value if isinstance(value, list) else []
+        return [s for s in value if isinstance(s, str)] if isinstance(value, list) else []
 
 
 def check(note: Note, categories: set[str], relations: set[str],
@@ -241,6 +257,11 @@ def check(note: Note, categories: set[str], relations: set[str],
     def err(line: int, msg: str, warning: bool = False) -> None:
         problems.append(Problem(path, line, msg, warning))
 
+    if note.fm_error is not None:
+        mark = getattr(note.fm_error, "problem_mark", None)
+        err(mark.line + 2 if mark else 1,
+            f"frontmatter is not valid YAML: {str(note.fm_error).splitlines()[0]}")
+        return problems
     if note.fm_end == -1:
         err(1, "no closing --- on the frontmatter block (or no frontmatter at all)")
         return problems
@@ -260,11 +281,13 @@ def check(note: Note, categories: set[str], relations: set[str],
                f"every existing note, or remove it")
 
     for key in sorted(set(fm) & LIST_KEYS):
-        if not isinstance(fm[key], list):
-            err(1, f"'{key}' must be a YAML block sequence (indented '- ' lines), "
-                   f"not an inline scalar")
-        elif not fm[key]:
+        value = fm[key]
+        if value is None or value == []:
             err(1, f"'{key}' is present but empty")
+        elif not isinstance(value, list):
+            err(1, f"'{key}' must be a list, got {value!r}")
+        elif not all(isinstance(v, str) and v.strip() for v in value):
+            err(1, f"'{key}' must hold only non-empty strings, got {value!r}")
 
     if fm.get("type") not in (None, "note"):
         err(1, f"type is '{fm['type']}', expected 'note'")
@@ -274,17 +297,12 @@ def check(note: Note, categories: set[str], relations: set[str],
         if fm["permalink"] != want:
             err(1, f"permalink is '{fm['permalink']}', expected '{want}'")
 
-    tags = fm.get("tags")
-    if tags is not None and not (isinstance(tags, str)
-                                 and re.fullmatch(r"\[[^\]]+\]", tags)):
-        err(1, f"tags should be a non-empty bracketed list, got '{tags}'")
-
-    if isinstance(fm.get("verified"), str):
-        try:
-            if dt.date.fromisoformat(fm["verified"]) > dt.date.today():  # type: ignore[arg-type]
-                err(1, f"verified '{fm['verified']}' is in the future")
-        except ValueError:
+    if "verified" in fm:
+        verified = as_date(fm["verified"])
+        if verified is None:
             err(1, f"verified '{fm['verified']}' is not an ISO YYYY-MM-DD date")
+        elif verified > dt.date.today():
+            err(1, f"verified '{verified}' is in the future")
 
     if "coverage" in fm and fm["coverage"] not in ("partial", "complete"):
         err(1, f"coverage is '{fm['coverage']}', expected 'partial' or 'complete'")
@@ -310,17 +328,26 @@ def check(note: Note, categories: set[str], relations: set[str],
     if h1 is None:
         err(offset, "no H1 heading")
     elif note.is_domain or note.is_entity:
-        after = [(i, l) for i, l in enumerate(body[h1 + 1:], start=h1 + 1) if l.strip()]
-        if not after or not after[0][1].lstrip().startswith(">"):
-            err(offset + h1, f"{note.tree}/ note has no WIP banner immediately after the H1")
+        after = [i for i, l in enumerate(body[h1 + 1:], start=h1 + 1) if l.strip()]
+        if not after or not body[after[0]].lstrip().startswith(">"):
+            err(offset + h1, f"{note.tree}/ note has no scope blockquote immediately after the H1")
         else:
-            idx, banner = after[0]
-            if BANNER_OPENER not in banner:
-                err(offset + idx, f"banner does not open with {BANNER_OPENER!r}")
-            elif len(banner) < MIN_BANNER_CHARS:
-                err(offset + idx,
-                    f"banner is {len(banner)} chars — looks like boilerplate with no "
-                    f"note-specific scope sentence (want >= {MIN_BANNER_CHARS})")
+            # Only the first paragraph is the scope statement; a later `>` paragraph
+            # is a separate callout and must not pad a placeholder past the floor.
+            para: list[str] = []
+            for l in body[after[0]:]:
+                quoted = l.strip()
+                if not quoted.startswith(">") or not quoted[1:].strip():
+                    break
+                para.append(quoted[1:].strip())
+            scope = " ".join(para)
+            if not scope.startswith(SCOPE_OPENER):
+                err(offset + after[0], f"scope blockquote does not open with {SCOPE_OPENER!r}")
+            elif len(scope) - len(SCOPE_OPENER) < MIN_SCOPE_CHARS:
+                err(offset + after[0],
+                    f"scope is {len(scope) - len(SCOPE_OPENER)} chars after {SCOPE_OPENER!r} — "
+                    f"looks like a placeholder, not what this note does not cover "
+                    f"(want >= {MIN_SCOPE_CHARS})")
 
     in_relations = False
     for i, line in enumerate(body):
@@ -330,6 +357,10 @@ def check(note: Note, categories: set[str], relations: set[str],
         for ph in PLACEHOLDERS:
             if ph in line:
                 err(n, f"leftover template placeholder {ph!r}")
+
+        if RETIRED_BANNER_OPENER in line:
+            err(n, f"retired boilerplate {RETIRED_BANNER_OPENER!r} — the blockquote after "
+                   f"the H1 now holds only this note's scope, opening with {SCOPE_OPENER!r}")
 
         if stripped.startswith("## "):
             in_relations = stripped == "## Relations"
@@ -401,8 +432,8 @@ def stale_report(notes: list[Note]) -> list[Problem]:
     """
     out: list[Problem] = []
     for note in notes:
-        verified, sources = note.fm.get("verified"), note.sources()
-        if not isinstance(verified, str) or not sources:
+        verified, sources = as_date(note.fm.get("verified")), note.sources()
+        if verified is None or not sources:
             continue
         existing = [s for s in sources if (REPO / s).exists()]
         if not existing:
@@ -458,8 +489,14 @@ def main() -> int:
     args = ap.parse_args()
     show_warnings = args.warnings or args.stale
 
-    categories, relations = spec_categories(), spec_relations()
-    domain_keys, tags_vocab = spec_domain_keys(), spec_tags()
+    categories, relations, tags_vocab = spec_categories(), spec_relations(), spec_tags()
+    try:
+        domain_keys = spec_domain_keys()
+        readme_fm, _ = parse_frontmatter(README.read_text(encoding="utf-8").splitlines())
+    except yaml.YAMLError as exc:
+        print(f"README.md or _template.md frontmatter is not valid YAML: {exc}",
+              file=sys.stderr)
+        return 2
     if not categories or not relations or not domain_keys or not tags_vocab:
         print("could not parse the spec out of README.md / _template.md — "
               "has their structure changed?", file=sys.stderr)
@@ -472,8 +509,7 @@ def main() -> int:
 
     # README.md is not validated as a note, but it carries a title and is a
     # legitimate wikilink target, so register it before resolving links.
-    readme_fm, _ = parse_frontmatter(README.read_text(encoding="utf-8").splitlines())
-    titles: dict[str, Path] = ({readme_fm["title"]: README}  # type: ignore[dict-item]
+    titles: dict[str, Path] = ({str(readme_fm["title"]): README}
                                if "title" in readme_fm else {})
 
     for note in notes:

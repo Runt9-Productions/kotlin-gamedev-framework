@@ -7,7 +7,7 @@ Kotlin Game Development FrameWork. Hand-written, single-maintainer, consumed by 
 `.claude/reference/` is an agent-first knowledge base, tracked in git. **Read `.claude/reference/README.md`
 before adding to it** — it is a spec, not a suggestion, and `_validate.py` enforces it.
 
-It is relevance-triggered: check it before reading code on a topic it covers, and expect it to tell you which code to read and what is surprising about it. Current entry points:
+It is relevance-triggered: check it before reading code on a topic it covers, and expect it to tell you which code to read and what is surprising about it. **Search it with the basic-memory MCP server's `search_notes`** (project `kgdfw-kb`). It matches meaning rather than words. An existing note is edited with `edit_note`, never by writing the file; a hook enforces this. Current entry points:
 
 - `domains/interception/overview.md` — hooks, contexts, exact-class matching, holders
 - `domains/event-and-state/overview.md` — EventBus, the named single-thread contexts, `GameStateService`

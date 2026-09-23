@@ -14,7 +14,7 @@ sources:
 
 # Build and Release
 
-> **Incomplete and permanently WIP.** These notes record what has been investigated, not what exists. Anything not mentioned here is almost certainly "not looked at yet" rather than "not there" or "not a problem". This note covers the publishing configuration in `kgdfw-common-plugin.gradle.kts`, `publish.yml` and `gradle.properties`. It does **not** cover the version catalog, the `useLocalKgdfw` composite-build path a consumer uses to iterate locally, or the settings/module structure that decides which projects apply the plugin.
+> **Scope.** This note covers the publishing configuration in `kgdfw-common-plugin.gradle.kts`, `publish.yml` and `gradle.properties`. It does **not** cover the version catalog, the `useLocalKgdfw` composite-build path a consumer uses to iterate locally, or the settings/module structure that decides which projects apply the plugin.
 
 Read this before cutting a release, before changing anything under `publishing { }`, or when a consumer cannot resolve a version that appears to exist. The two things most likely to be got wrong: **the tag is the version, not `gradle.properties`**, and **a version showing up in the packages API does not mean the publish finished**.
 

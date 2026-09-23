@@ -13,7 +13,7 @@ sources:
 
 # Running Without a Display
 
-> **Incomplete and permanently WIP.** These notes record what has been investigated, not what exists. Anything not mentioned here is almost certainly "not looked at yet" rather than "not there" or "not a problem". This note covers `PlayerSettings.defaultPlayerSettings()` and the two `getDisplayMode()` call sites in `core`. It does **not** cover asset loading, audio, fonts, or any other LibGDX subsystem that may equally demand a display — none of those were read, and their absence here says nothing about whether they are safe.
+> **Scope.** This note covers `PlayerSettings.defaultPlayerSettings()` and the two `getDisplayMode()` call sites in `core`. It does **not** cover asset loading, audio, fonts, or any other LibGDX subsystem that may equally demand a display — none of those were read, and their absence here says nothing about whether they are safe.
 
 Read this before assuming a consumer's test harness, CI job, or headless tool can run without a windowing system. **"Creates no LibGDX `Application`" and "runs headless" are not the same claim**, and the gap between them is the whole subject of this note: a static LibGDX call can initialize GLFW with no `Application` anywhere in the process.
 
