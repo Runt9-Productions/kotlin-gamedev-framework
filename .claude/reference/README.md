@@ -23,7 +23,7 @@ Three things are worth doing on arrival, because they are the parts that cannot 
 
 ## Read the damn code — the failure that makes a note worse than nothing
 
-**A note written from a search result, a grep hit, a design doc, another note, or your own memory of how code like this usually works is not incomplete. It is false, and it is worse than having no note at all**, because the banner above licenses a reader to trust what *is* written. A gap makes someone go and read the source. A fabricated fact stops them from reading it.
+**A note written from a search result, a grep hit, a design doc, another note, or your own memory of how code like this usually works is not incomplete. It is false, and it is worse than having no note at all**, because a reader trusts what *is* written. A gap makes someone go and read the source. A fabricated fact stops them from reading it.
 
 This section exists because of a real incident, quoted verbatim so the shape is unmistakable. An agent wrote a note, listed its dependencies, and then admitted:
 
@@ -58,9 +58,11 @@ Practical consequences:
 
 This matters because a knowledge base is trusted, and a trusted source that is silent reads as a source that says "no". That failure is worse than having no KB at all, because it ends a search that should have continued. When the KB is quiet on your question, treat it as having said nothing.
 
+**This section is the one place that says so.** Every note used to open with the same boilerplate sentence restating it. That was removed on 2026-09-22: semantic search over the KB indexes notes in passages, so the identical sentence was being matched as the relevant passage for unrelated queries, and it pushed the text that was specific to each note further from the heading. Each note now opens with a `> **Scope.**` line carrying only what is true of that note, written on the assumption that this section has already been read.
+
 ## Format
 
-Deliberately shaped to match [Basic Memory](https://github.com/basicmachines-co/basic-memory) so that wrapping it later is a no-op rather than a migration. These are plain markdown files; running Basic Memory over them is optional and not assumed.
+Shaped to match [Basic Memory](https://github.com/basicmachines-co/basic-memory), which indexes this directory for search over MCP (`search_notes`, `build_context`). **Agents edit an existing note with Basic Memory's `edit_note`, never by writing the file.** Its file watcher drops changes that arrive while it is still indexing, so a direct write can leave search answering from the old text with no error, and a hook denies it. Create a note with `write_note` too: put the full frontmatter from the template in `content`, and pass as `title` the words of the filename you want (`Overview` gives `overview.md`). The tool's `title` overwrites the frontmatter one, so when the two differ, follow with an `edit_note` `find_replace` on the `title:` line. The file keeps its name.
 
 **Copy `_template.md` rather than writing this from memory.** It is the normative version of the block below and carries a pre-save checklist; this section is the explanation.
 
@@ -80,7 +82,7 @@ sources:
 
 # Human Readable Name
 
-> **Incomplete and permanently WIP.** These notes record what has been investigated, not what exists. Anything not mentioned here is almost certainly "not looked at yet" rather than "not there" or "not a problem". <one or two sentences naming what THIS note does not cover.>
+> **Scope.** <what THIS note covers, and specifically what it does not.>
 
 One paragraph on what this note is for.
 
@@ -93,11 +95,11 @@ One paragraph on what this note is for.
 - relation_type [[Other Note]]
 ```
 
-Every field above is required, including `coverage`, `sources` and the banner. See the conventions below for what each is for.
+Every field above is required, including `coverage`, `sources` and the Scope line. See the conventions below for what each is for.
 
 ### `sources` is what makes staleness detectable
 
-`verified` tells a reader how *old* a note is. It cannot tell them whether the code moved underneath it, which is the way reference material actually goes wrong: a stale `[fact]` is worse than a missing one, because the banner licenses trusting what is there.
+`verified` tells a reader how *old* a note is. It cannot tell them whether the code moved underneath it, which is the way reference material actually goes wrong: a stale `[fact]` is worse than a missing one, because a reader trusts what is there.
 
 `sources` closes that. List **the files this note's claims depend on**, repo-relative, as a YAML block sequence. In practice, when writing a fresh note, that is the set you opened — you open what you write about. The dependency framing is the definition, though, because it is the one that answers the question `--stale` asks: *has the code this note describes moved?* Not *did someone happen to open a file?*
 
@@ -130,7 +132,7 @@ Do not guess, and do not skip the note. Every claim in a well-written note here 
 Two things must stay honest when you do it:
 
 - **It does not re-verify anything.** `verified` still means the date someone last confirmed the facts. Leave it alone; do not bump it because you touched the frontmatter. Adding `sources` makes staleness *detectable*, which is precisely what tells you whether re-verification is needed.
-- **A reconstructed list is a floor, not a complete set.** A note can depend on a file it never names — an unmentioned base class, a caller that establishes a precondition. Say so in the note's banner, which is already the slot for what the note does not cover. That needs no new frontmatter key.
+- **A reconstructed list is a floor, not a complete set.** A note can depend on a file it never names — an unmentioned base class, a caller that establishes a precondition. Say so in the note's Scope line, which is already the slot for what the note does not cover. That needs no new frontmatter key.
 
 Then run `--stale`. If it reports nothing, the note describes code that has not moved and no deep-dive is warranted — which is a measurement, not an assumption.
 
@@ -147,9 +149,9 @@ A permalink must stay stable if the file moves, so prefer renaming the file to c
 
 ### Three rulesets: `domains/` is strict, `entities/` nearly so, `projects/` is not
 
-- `domains/` notes carry exactly the seven keys in the template — no more, no less — plus the banner. They are durable, they get trusted, and a reader needs to know their staleness and scope.
-- `entities/` notes require `title`, `type`, `permalink`, `tags`, `verified`, `coverage`, **plus the banner**, and may additionally carry `branch`, `sources` and `id`. They are durable and trusted like `domains/` notes, which is why they keep `coverage` — "this item has only been seen in one recording" is the most important thing such a note says. `sources` is optional because an entity's evidence is not always a repo file, and `branch` because it is meaningless for a note describing a recording rather than code.
-- `projects/` notes require only `title`, `type`, `permalink`, `tags`. They may additionally carry `verified`, `branch`, `sources`, `status`, `release`, `opened`, `call_date`. **They are exempt from `coverage:` and the WIP banner**, because "incomplete relative to the whole subsystem" is not the relevant caveat for a record of one ticket — such a note is scoped by its subject, not by how much code was read.
+- `domains/` notes carry exactly the seven keys in the template — no more, no less — plus the Scope line. They are durable, they get trusted, and a reader needs to know their staleness and scope.
+- `entities/` notes require `title`, `type`, `permalink`, `tags`, `verified`, `coverage`, **plus the Scope line**, and may additionally carry `branch`, `sources` and `id`. They are durable and trusted like `domains/` notes, which is why they keep `coverage` — "this item has only been seen in one recording" is the most important thing such a note says. `sources` is optional because an entity's evidence is not always a repo file, and `branch` because it is meaningless for a note describing a recording rather than code.
+- `projects/` notes require only `title`, `type`, `permalink`, `tags`. They may additionally carry `verified`, `branch`, `sources`, `status`, `release`, `opened`, `call_date`. **They are exempt from `coverage:` and the Scope line**, because "incomplete relative to the whole subsystem" is not the relevant caveat for a record of one ticket — such a note is scoped by its subject, not by how much code was read.
 - Adding a key to the `domains/` set is a spec change and triggers the sweep obligation below. `_validate.py` fails on unknown keys specifically so that this cannot happen by accident in one note. The `entities/` and `projects/` key sets live as constants in `_validate.py` rather than in a template, because a two-tier set cannot be read off a single frontmatter block; adding a key there is the same spec change with the same obligation.
 
 ### What makes something an entity rather than a topic
@@ -178,7 +180,7 @@ These are ours, not Basic Memory's.
 - **Cite `symbol` plus `file:line`.** The symbol name is the durable part; the line number is a hint that drifts. Every note carries a `verified` date and branch in frontmatter so a reader knows how stale the numbers are.
 - **Record the trap, not the happy path.** "This method exists and does X" is what code reading is for. "This method is not the one that runs at runtime" is what this KB is for.
 - **Mark confidence.** `[fact]` is verified by reading the code or measuring. `[question]` is open. `[risk]` is a hazard we believe but have not proven. Never dress the second two as the first.
-- **Say what a note does not cover.** **Every** note — hub and child alike — carries a `coverage:` frontmatter field and a banner immediately after the H1. The banner is the shared boilerplate sentence from the template, followed by one or two sentences naming what is *outside this note's* scope. Write that scope line when you create the note and narrow it as coverage grows. It is the only thing preventing a reader from mistaking a partial note for a complete one, and a note without it reads as authoritative.
+- **Say what a note does not cover.** **Every** note — hub and child alike — carries a `coverage:` frontmatter field and a blockquote immediately after the H1 opening with `> **Scope.**`, saying what the note covers and naming what is *outside* it, including which parts are carried forward unverified from an earlier pass. There is no shared boilerplate in it: the "incomplete by design" principle is stated once, under "What absence means" above, and a Scope line that only restates it is empty. Write the Scope line when you create the note and narrow it as coverage grows. It is the only thing preventing a reader from mistaking a partial note for a complete one, and a note without it reads as authoritative. A substantive fact about the subject belongs in the body, not in the Scope line, where a reader skimming for scope will not look for it.
 - **Scope lines must be specific to be worth anything.** "Some things are not covered" is noise. Name the class, module, vendor or path that was not read: "measurements cover one vendor only", "the auth shape is characterised, the call path never traced", "everything downstream of the dedupe step is named but not investigated". A reader uses that line to decide whether their question is inside or outside the note.
 - **`coverage:` values.** `partial` is the honest default. `complete` is a claim that the subsystem was read exhaustively; do not use it without saying in the note how that was established.
 - **Link liberally, including to notes that do not exist yet.** A `[[dangling link]]` is a note worth writing, not an error.
@@ -232,7 +234,7 @@ python3 .claude/reference/_validate.py [--warnings] [--stale]
 
 Exit 0 is clean *for errors*. Warnings — including everything `--stale` reports — do not affect the
 exit code, so a clean exit is not evidence that nothing is stale. Read the `warn` lines. **Run it
-before finishing any KB work** — it catches the mechanical mistakes that a reader would otherwise mistake for deliberate choices: wrong permalink shape, missing `coverage`/banner, boilerplate-only banners, unknown categories or relation types, leftover template placeholders, duplicate titles, bad dates.
+before finishing any KB work** — it catches the mechanical mistakes that a reader would otherwise mistake for deliberate choices: wrong permalink shape, missing `coverage` or Scope line, a Scope line too short to be more than a placeholder, the retired shared banner sentence, unknown categories or relation types, leftover template placeholders, duplicate titles, bad dates.
 
 It holds no independent opinion about the format. Categories, inline tags and relation types are parsed out of this file's tables; the required key set for `domains/` notes is read from `_template.md`'s frontmatter. So the spec files stay the single source of truth, and the validator's job is only to enforce them everywhere at once.
 
@@ -311,7 +313,7 @@ Note that upstream Basic Memory treats relation types as arbitrary free text. Th
 
 Within `domains/`, general knowledge goes in `domains/<area>/` and narrower specifics one level down. If a fact is true of two of the narrower cases, it belongs one level up.
 
-Use `_legacy/` or `_superseded/` for a document kept only until its content is extracted. Give it a banner saying what supersedes it, and delete it once there is nothing left worth mining.
+Use `_legacy/` or `_superseded/` for a document kept only until its content is extracted. Open it with a line saying what supersedes it, and delete it once there is nothing left worth mining.
 
 ## Entry points
 

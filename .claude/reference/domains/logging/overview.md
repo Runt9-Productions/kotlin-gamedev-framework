@@ -19,7 +19,7 @@ sources:
 
 # Logging
 
-> **Incomplete and permanently WIP.** These notes record what has been investigated, not what exists. Anything not mentioned here is almost certainly "not looked at yet" rather than "not there" or "not a problem". This note covers the `com.runt9.kgdf.log` package, how a level reaches it from player settings, and how tests capture output. It does **not** cover SLF4J/logback backend configuration, log file rotation, or `teeStderrToFile`'s interaction with a running application.
+> **Scope.** This note covers the `com.runt9.kgdf.log` package, how a level reaches it from player settings, and how tests capture output. It does **not** cover SLF4J/logback backend configuration, log file rotation, or `teeStderrToFile`'s interaction with a running application.
 
 Read this before adding a log call in a hot path, before changing anything in `com.runt9.kgdf.log`, or before writing a test that asserts on log output.
 

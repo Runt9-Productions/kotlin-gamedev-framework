@@ -14,7 +14,7 @@ sources:
 
 # View Binding
 
-> **Incomplete and permanently WIP.** These notes record what has been investigated, not what exists. Anything not mentioned here is almost certainly "not looked at yet" rather than "not there" or "not a problem". `ViewModel.kt`, `Updatable.kt` and `BindingExt.kt` were read in full. Not covered: the `ui/view/` classes (`View`, `TableView`, `DialogView`, `GroupView`, `ScreenView`), the Scene2D/KTX layer these helpers sit on, and which thread a binding may safely be mutated from.
+> **Scope.** `ViewModel.kt`, `Updatable.kt` and `BindingExt.kt` were read in full. Not covered: the `ui/view/` classes (`View`, `TableView`, `DialogView`, `GroupView`, `ScreenView`), the Scene2D/KTX layer these helpers sit on, and which thread a binding may safely be mutated from.
 
 How a `ViewModel` field notifies the UI when it changes. Read this before concluding that a "state changed but the screen did not update" report is a state bug — usually the state is fine and the notification is what went missing, silently.
 

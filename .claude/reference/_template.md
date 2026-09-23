@@ -13,7 +13,7 @@ sources:
 
 # Human Readable Name
 
-> **Incomplete and permanently WIP.** These notes record what has been investigated, not what exists. Anything not mentioned here is almost certainly "not looked at yet" rather than "not there" or "not a problem". REPLACE THIS SENTENCE with one or two naming what *this* note does not cover — the class, module, vendor or path that was not read.
+> **Scope.** REPLACE THIS SENTENCE with what *this* note covers and, specifically, what it does not: the class, module, vendor or path that was not read, and anything carried forward unverified from an earlier pass.
 
 One paragraph on what this note is for and when to read it. Say what the reader is about to get wrong if they skip it.
 
@@ -48,12 +48,14 @@ CHECKLIST — delete this block before saving.
       become wrong? If no, it is not a source. This list is what `--stale` diffs against
       git history, so padding it produces false staleness and trimming it produces false
       confidence. Reconstructing it for an older note: resolve the symbols the note already
-      cites, leave `verified` alone, and say in the banner that the list is a floor.
-  [ ] coverage: partial, and the banner's second sentence names something specific.
+      cites, leave `verified` alone, and say in the Scope line that the list is a floor.
+  [ ] coverage: partial, and the Scope line names something specific. It holds scope only: no
+      boilerplate (README.md "What absence means" states the principle once), and no fact
+      about the subject, which belongs in the body.
   [ ] Every [fact] cites a symbol you opened AND READ IN FULL, this run. Not a search result, not
       a grep hit, not CLAUDE.md, not another note, not memory. See "Read the damn code" in
       README.md — a note built from three lines of a search result is worse than no note, because
-      the WIP banner licenses trusting whatever IS written. Symbol names are durable; line numbers
+      a reader trusts whatever IS written. Symbol names are durable; line numbers
       are hints.
   [ ] Nothing is marked [fact] that is actually [risk] or [question]. Second-hand claims are worth
       keeping — mark them [risk]/[question] and say they are unverified, never [fact].
