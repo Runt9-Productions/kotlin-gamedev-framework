@@ -16,7 +16,9 @@ sources:
 
 > **Scope.** This note covers the publishing configuration in `kgdfw-common-plugin.gradle.kts`, `publish.yml` and `gradle.properties`. It does **not** cover the version catalog, the `useLocalKgdfw` composite-build path a consumer uses to iterate locally, or the settings/module structure that decides which projects apply the plugin.
 
-Read this before cutting a release, before changing anything under `publishing { }`, or when a consumer cannot resolve a version that appears to exist. The two things most likely to be got wrong: **the tag is the version, not `gradle.properties`**, and **a version showing up in the packages API does not mean the publish finished**.
+Read this before cutting a release, before changing anything under `publishing { }`, or when a consumer cannot resolve a version that appears to exist. The things most likely to be got wrong: **the tag is the version, not `gradle.properties`**, yet **the file must still be bumped to match or the publish fails**, and **a version showing up in the packages API does not mean the publish finished**.
+
+**Partial re-verify 2026-09-26 (branch `claude/current-screen-route`):** only `publish.yml` and `gradle.properties` were re-read, after an agent opened a release PR without the `gradle.properties` bump, not knowing about the tag-versus-file assertion that the 2026-09-04 pass predates. The "tag is the version" section and its citations were corrected; everything else is carried forward. `verified:` still refers to the 2026-09-04 pass.
 
 ## Observations
 
@@ -31,8 +33,11 @@ Read this before cutting a release, before changing anything under `publishing {
 ### The tag is the version
 
 - [fact] `.github/workflows/publish.yml` triggers on a push of any tag matching `*.*.*` and runs `./gradlew -Pversion="${{ github.ref_name }}" publish`.
-- [trap] `version` in `gradle.properties:6` is only the local default. `-Pversion` overrides it in the workflow, so **editing `gradle.properties` alone publishes nothing and changes no published coordinate** — the released version is whatever the tag says.
-- [decision] The workflow grants `permissions: packages: write` and passes the run's own `GITHUB_TOKEN`. The stated intent is that the write-capable credential exists for one run and nothing write-capable sits in a developer's `gradle.properties` (`publish.yml:13-17,30-33`).
+- [trap] `version` in `gradle.properties:6` does not decide the published version: `-Pversion` overrides it in the workflow (`publish.yml:41`), so **editing `gradle.properties` alone publishes nothing and changes no published coordinate** — the released version is whatever the tag says.
+- [invariant] **But the publish fails unless `gradle.properties`' `version` equals the tag.** A step before the build compares the two and exits 1 with "Tag is X but gradle.properties says Y. Bump the file, then move the tag onto the new commit" (`publish.yml:25-32`). So tagging without the bump publishes nothing at all #silent-failure
+- [decision] The file is kept honest on purpose: it is what someone reads to learn what version kgdfw is at, and a consumer pinning a number that was never released fails downstream as an unresolvable dependency with no hint of the cause (`publish.yml:22-24`).
+- [fact] A release therefore runs: the release PR bumps `version` in `gradle.properties`; it merges; the merge commit is tagged with that same number; the consumer then bumps its pin. The pin bump is the consumer's own change, described in its own KB, not here.
+- [decision] The workflow grants `permissions: packages: write` and passes the run's own `GITHUB_TOKEN`. The stated intent is that the write-capable credential exists for one run and nothing write-capable sits in a developer's `gradle.properties` (`publish.yml:15-17,42-45`).
 - [fact] A consequence of that decision: there is no supported way to publish from a developer machine. Releasing is a tag push.
 
 ### Credentials
