@@ -2,6 +2,7 @@ package com.runt9.kgdf.api
 
 import com.runt9.kgdf.api.controller.ApiControllerRegistry
 import com.runt9.kgdf.api.controller.ApiException
+import com.runt9.kgdf.api.result.respondNoData
 import com.runt9.kgdf.game.PostRender
 import com.runt9.kgdf.log.kgdfLogger
 import io.ktor.serialization.kotlinx.json.json
@@ -11,6 +12,7 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.response.respondText
+import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import kotlinx.serialization.json.Json
 import kotlin.time.Duration.Companion.milliseconds
@@ -22,6 +24,7 @@ object HarnessServer {
     private val shutdownGrace = 1_000.milliseconds
     private val shutdownTimeout = 2_000.milliseconds
     private const val LOCALHOST = "127.0.0.1"
+    private const val CURRENT_SCREEN_ROUTE = "/currentScreen"
 
     /**
      * Runs [runGame] with the server bound around it, from the end of the first frame drawn until the game loop
@@ -37,7 +40,13 @@ object HarnessServer {
     @Suppress("HttpUrlsUsage")
     fun serve(port: Int, runGame: () -> Unit) {
         val server = embeddedServer(CIO, port = port, host = LOCALHOST) {
-            routing(ApiControllerRegistry::addRoutesToRouting)
+            routing {
+                ApiControllerRegistry.addRoutesToRouting(this)
+
+                // Every response carries currentScreen, but a caller that has not acted yet has none to read, and
+                // each screen's own read refuses unless that screen is up. This one answers from any screen.
+                get(CURRENT_SCREEN_ROUTE) { call.respondNoData() }
+            }
 
             // Global exception handler that allows exceptions to be thrown to respond with an error as opposed to each controller
             // doing error handling in its own way then having to return from their handler function. Can easily be expanded in the

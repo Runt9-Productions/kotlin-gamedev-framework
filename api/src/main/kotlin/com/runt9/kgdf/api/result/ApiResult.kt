@@ -9,9 +9,9 @@ import kotlinx.serialization.Serializable
 /**
  * Every JSON response.
  *
- * [currentScreen] rides on all of them rather than sitting behind an endpoint of its own because an action can
- * change which screen is up and the caller cannot predict which: ending a round may open a level-up dialog, a
- * round-end dialog, or the shop.
+ * [currentScreen] rides on all of them, not only on `GET /currentScreen`, because an action can change which
+ * screen is up and the caller cannot predict which: one action can land on any of several screens,
+ * depending on state the caller has not read.
  */
 @Serializable
 class ApiResult<T>(val currentScreen: ApiScreen, val data: T)
