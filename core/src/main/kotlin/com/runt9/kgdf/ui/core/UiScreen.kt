@@ -30,6 +30,8 @@ abstract class UiScreen(width: Float, height: Float) : BaseScreen {
     }
 
     override fun hide() {
+        // clear() drops a dialog's actors but not its activeDialogs entry, which would count as open next show.
+        uiStage.hideAllDialogs()
         uiStage.clear()
         input.removeProcessor(uiStage)
         uiController.dispose()
