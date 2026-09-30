@@ -21,10 +21,12 @@ abstract class UiScreen(width: Float, height: Float) : BaseScreen {
 
     override fun show() {
         input.addProcessor(uiStage)
+        // Before setView, not after with atRuntime: that clears the stage and runs the view's init() a second time,
+        // discarding anything the first build started, such as actions or actors added to the stage.
+        uiStage.applyUiScale()
         uiController.load()
         uiStage.setView(uiController.view)
         dialogManager.currentStage = uiStage
-        uiStage.applyUiScale(atRuntime = true)
     }
 
     override fun hide() {
