@@ -20,12 +20,21 @@ fun Int.sqrt() = toDouble().sqrt()
 fun ClosedRange<Float>.random(rng: Random) = rng.nextFloat() * (endInclusive - start) + start
 
 fun Float.displayInt() = roundToInt().toString()
-fun Float.displayDecimal(decimals: Int = 2) = "%.${decimals}f".format(this)
+// The formatter widens a Float to Double itself, so delegating changes no output.
+fun Float.displayDecimal(decimals: Int = 2, trimTrailingZeros: Boolean = false) = toDouble().displayDecimal(decimals, trimTrailingZeros)
 fun Float.displayMultiplier(decimals: Int = 2) = "${displayDecimal(decimals)}x"
 fun Float.displayPercent(decimals: Int = 1) = "${(this * 100f).displayDecimal(decimals)}%"
 
 fun Double.displayInt() = roundToInt().toString()
-fun Double.displayDecimal(decimals: Int = 2) = "%.${decimals}f".format(this)
+fun Double.displayDecimal(decimals: Int = 2, trimTrailingZeros: Boolean = false): String {
+    val formatted = "%.${decimals}f".format(this)
+    if (!trimTrailingZeros) return formatted
+    // With no decimal places every trailing zero is part of the whole number: 10 would trim to "1".
+    if (decimals == 0) return formatted
+    // The separator follows the default locale, so drop whatever character is left rather than a literal '.'.
+    return formatted.trimEnd('0').dropLastWhile { !it.isDigit() }
+}
+
 fun Double.displayMultiplier(decimals: Int = 2) = "${displayDecimal(decimals)}x"
 fun Double.displayPercent(decimals: Int = 1) = "${(this * 100f).displayDecimal(decimals)}%"
 
