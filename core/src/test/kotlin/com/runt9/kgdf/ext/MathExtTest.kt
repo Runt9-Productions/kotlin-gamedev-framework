@@ -54,5 +54,17 @@ class MathExtTest : FunSpec({
             2.2f.displayDecimal(2, trimTrailingZeros = true) shouldBe "2.2"
             3f.displayDecimal(2, trimTrailingZeros = true) shouldBe "3"
         }
+
+        test("NaN and the infinities show as themselves") {
+            Double.NaN.displayDecimal(2, trimTrailingZeros = true) shouldBe "NaN"
+            Double.POSITIVE_INFINITY.displayDecimal(2, trimTrailingZeros = true) shouldBe "Infinity"
+            Double.NEGATIVE_INFINITY.displayDecimal(2, trimTrailingZeros = true) shouldBe "-Infinity"
+        }
+
+        test("a negative that rounds to zero shows as zero with no sign") {
+            (-0.001).displayDecimal(2, trimTrailingZeros = true) shouldBe "0"
+            (-0.0).displayDecimal(2, trimTrailingZeros = true) shouldBe "0"
+            (-0.3).displayDecimal(0, trimTrailingZeros = true) shouldBe "0"
+        }
     }
 })
