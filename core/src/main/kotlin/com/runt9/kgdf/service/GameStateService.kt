@@ -13,8 +13,12 @@ abstract class GameStateService<T : GameState, E : GameStateUpdated<T>>(
     private val serviceAsync: ServiceAsync
 ) {
     private val logger = kgdfLogger()
+
+    // Volatile: load and peek run on the caller's thread while save may replace this from Service-Thread.
+    @Volatile
     private lateinit var gameState: T
 
+    /** First call initializes the state from the save file, or creates and saves a new one when there is none. */
     fun load(): T {
         if (!this@GameStateService::gameState.isInitialized) {
             if (stateService.hasSavedFile()) {
@@ -26,6 +30,19 @@ abstract class GameStateService<T : GameState, E : GameStateUpdated<T>>(
         }
 
         return gameState.clone() as T
+    }
+
+    /**
+     * Runs [select] against the live cached state, not a clone, and returns what it selects. No side effects: unlike
+     * [load] it never initializes, and throws if nothing has loaded or saved yet.
+     *
+     * [select] must only read. A mutation lands in the cache with no save and no update event, and returning the
+     * state or a mutable part of it hands out the cache. [save] keeps the instance it is given, so a caller that
+     * mutates an object after saving it also changes what this sees.
+     */
+    fun <R> peek(select: T.() -> R): R {
+        check(this@GameStateService::gameState.isInitialized) { "peek before the first load or save" }
+        return gameState.select()
     }
 
     fun save(gameState: T, forceUpdate: Boolean = false) {
