@@ -13,9 +13,12 @@ abstract class GameStateService<T : GameState, E : GameStateUpdated<T>>(
     private val serviceAsync: ServiceAsync
 ) {
     private val logger = kgdfLogger()
+
+    // Volatile because read() hands this to whichever thread calls it while save() replaces it from another.
+    @Volatile
     private lateinit var gameState: T
 
-    fun load(): T {
+    private fun cachedState(): T {
         if (!this@GameStateService::gameState.isInitialized) {
             if (stateService.hasSavedFile()) {
                 gameState = stateService.loadState()
@@ -25,8 +28,17 @@ abstract class GameStateService<T : GameState, E : GameStateUpdated<T>>(
             }
         }
 
-        return gameState.clone() as T
+        return gameState
     }
+
+    fun load(): T = cachedState().clone() as T
+
+    /**
+     * Runs [select] against the cached state itself, not a clone, so it costs nothing and sees every [save] that has
+     * returned, on any thread. [select] must only read: a mutation lands in the cache without a save, and returning
+     * the state or a mutable part of it hands out the cache.
+     */
+    fun <R> read(select: T.() -> R): R = cachedState().select()
 
     fun save(gameState: T, forceUpdate: Boolean = false) {
         if (!this@GameStateService::gameState.isInitialized || forceUpdate || gameState != this@GameStateService.gameState) {
