@@ -20,12 +20,30 @@ fun Int.sqrt() = toDouble().sqrt()
 fun ClosedRange<Float>.random(rng: Random) = rng.nextFloat() * (endInclusive - start) + start
 
 fun Float.displayInt() = roundToInt().toString()
-fun Float.displayDecimal(decimals: Int = 2) = "%.${decimals}f".format(this)
+fun Float.displayDecimal(decimals: Int = 2, trimTrailingZeros: Boolean = false) = toDouble().displayDecimal(decimals, trimTrailingZeros)
 fun Float.displayMultiplier(decimals: Int = 2) = "${displayDecimal(decimals)}x"
 fun Float.displayPercent(decimals: Int = 1) = "${(this * 100f).displayDecimal(decimals)}%"
 
 fun Double.displayInt() = roundToInt().toString()
-fun Double.displayDecimal(decimals: Int = 2) = "%.${decimals}f".format(this)
+fun Double.displayDecimal(decimals: Int = 2, trimTrailingZeros: Boolean = false): String {
+    val formatted = "%.${decimals}f".format(this)
+    if (!trimTrailingZeros) return formatted
+    // "NaN" and "Infinity" end in no digit, so trimming would erase them entirely.
+    if (!isFinite()) return formatted
+
+    val trimmed = formatted.withoutTrailingZeros(decimals)
+    // A small negative formats as "-0.00", which trims to "-0".
+    if (trimmed == "-0") return "0"
+    return trimmed
+}
+
+private fun String.withoutTrailingZeros(decimals: Int): String {
+    // With no decimal places every trailing zero is part of the whole number: 10 would trim to "1".
+    if (decimals == 0) return this
+    // Drops the separator whatever character the locale uses. A locale with non-ASCII digits is not trimmed at all.
+    return trimEnd('0').dropLastWhile { !it.isDigit() }
+}
+
 fun Double.displayMultiplier(decimals: Int = 2) = "${displayDecimal(decimals)}x"
 fun Double.displayPercent(decimals: Int = 1) = "${(this * 100f).displayDecimal(decimals)}%"
 
