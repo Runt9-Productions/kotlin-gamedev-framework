@@ -35,6 +35,7 @@ These are the framework's highest-cost surprises, kept here in one line each so 
   `forceUpdate` is false. Whether a mutation is detected therefore depends entirely on the consumer's
   `equals` — a mutable object with identity-ish equality is invisible here and its write is dropped.
 - **`GameStateService.load` returns a clone**, not the cached instance. What survives mutation without a save is whatever the consumer's `clone()` left shallow.
+- **`GameStateService.peek {}` hands its selector the live cache**, not a clone. A mutation inside it lands in the cache with no save and no update event, and nothing enforces read-only.
 - **`update {}` is synchronous; `updateAsync {}` dispatches to Service-Thread.** Do not trust older commit history or memory describing `update {}` as async.
 - **`ViewModel.Binding.set` short-circuits on `value == currentValue`** before notifying anything. A binding re-set to an equal value updates nothing — the same consumer-`equals` dependency as `save`.
 - **Reading a binding inside an `Updatable` subscribes to it.** `someBinding()` in an updater block both registers and reads; subscription is a side effect of what looks like a getter.

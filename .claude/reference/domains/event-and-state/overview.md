@@ -3,7 +3,7 @@ title: Events, Async and State
 type: note
 permalink: event-and-state/overview
 tags: [ eventbus, async, state, persistence ]
-verified: 2026-09-02
+verified: 2026-10-03
 branch: master
 coverage: partial
 sources:
@@ -21,13 +21,14 @@ sources:
   - core/src/main/kotlin/com/runt9/kgdf/async/AsyncFactory.kt
   - core/src/testFixtures/kotlin/com/runt9/kgdf/testsupport/TestAsyncFactory.kt
   - core/src/test/kotlin/com/runt9/kgdf/async/AsyncWorkQueueTest.kt
+  - core/src/test/kotlin/com/runt9/kgdf/service/GameStateServiceTest.kt
 ---
 
 # Events, Async and State
 
-> **Scope.** `EventBus`, `EventHandler`, `WorkSource`, `WorkTracker`, `AsyncWorkQueue`, `CombinedWorkSource`, `GameStateService`, `GameService`, `GameServiceRegistry`, `GameInitializer`, `ServiceAsync` and `AsyncFactory` were read in full. Not covered: `SingleFileSaveStateService` (the actual disk format and write path — only its call sites here were read), `Event`/`GameEvents`, and how any consuming project names or uses its own additional threads. The 2026-09-02 pass re-read only `GameStateService`, `AsyncFactory`, `TestAsyncFactory` and `AsyncWorkQueueTest`; everything in the EventBus, work-tracking and GameService-lifecycle sections is carried forward from the 2026-08-15 pass unverified.
+> **Scope.** `EventBus`, `EventHandler`, `WorkSource`, `WorkTracker`, `AsyncWorkQueue`, `CombinedWorkSource`, `GameStateService`, `GameService`, `GameServiceRegistry`, `GameInitializer`, `ServiceAsync` and `AsyncFactory` were read in full. Not covered: `SingleFileSaveStateService` (the actual disk format and write path — only its call sites here were read), `Event`/`GameEvents`, and how any consuming project names or uses its own additional threads. The 2026-10-03 pass re-read only `GameStateService` and its new test `GameStateServiceTest`. The 2026-09-02 pass re-read only `GameStateService`, `AsyncFactory`, `TestAsyncFactory` and `AsyncWorkQueueTest`; everything in the EventBus, work-tracking and GameService-lifecycle sections is carried forward from the 2026-08-15 pass unverified.
 
-Four coupled concerns: how events are dispatched, how outstanding work is counted so a caller can tell when things have settled, which named thread work lands on, and how game state is loaded, mutated and persisted. Read this before writing an event handler, before implementing `WorkSource` on anything, before choosing between `update` and `updateAsync`, and before assuming a `save` actually wrote anything.
+Four coupled concerns: how events are dispatched, how outstanding work is counted so a caller can tell when things have settled, which named thread work lands on, and how game state is loaded, mutated and persisted. Read this before writing an event handler, before implementing `WorkSource` on anything, before choosing between `load`, `peek`, `update` and `updateAsync`, and before assuming a `save` actually wrote anything.
 
 ## Observations
 
@@ -105,14 +106,15 @@ flowchart LR
 
 - [trap] `load()` returns `gameState.clone()`, **not** the cached instance. Mutating what `load()` gave you changes nothing until `save()` — except for whatever the consumer's `clone()` leaves shallow, which is visible immediately and permanently.
 - [trap] `save(state, forceUpdate = false)` **silently does nothing** when the state is already initialized, `forceUpdate` is false, and `state == cachedState`. Whether a mutation is detected therefore depends entirely on the consumer's `equals` #silent-failure. If a mutable object inside the state has identity-ish equality, mutating it is invisible here and the write is dropped — pass `forceUpdate = true` on any path that mutates such an object.
-- [fact] `read { }` runs a selector against the cached instance itself and returns what it selects, with no clone. It exists for checks that run every frame, where `load()`'s clone is the whole cost. The cache field is `@Volatile`, so a read on one thread sees any `save` another thread has finished.
-- [trap] `read`'s selector receives the live cache, so it must only read. A mutation inside it lands in the cache with no save and no `updatedEvent`, and a selector returning the state or a mutable part of it hands the cache to the caller. Nothing enforces this; the selected-value return shape only makes it visible at the call site #silent-failure.
+- [fact] `peek { }` runs a selector against the cached instance and returns what it selects, with no clone, for checks that run every frame where `load()`'s clone is the whole cost. It has no side effects: it never initializes, and throws `IllegalStateException` before the first `load` or `save`. The cache field is `@Volatile`, so a peek or load on one thread sees any `save` another thread has finished.
+- [trap] `peek`'s selector receives the live cache, and nothing enforces that it only reads. The KDoc on `peek` lists the three ways that leaks (mutating in the selector, returning a mutable part, and mutating an object after `save` stored it) #silent-failure.
 - [fact] `update(forceUpdate) { }` is **fully synchronous**: it is `load().apply { update(); save(this, forceUpdate) }`, running on the calling thread and returning after the save.
 - [fact] `updateAsync(forceUpdate) { }` is the same call wrapped in the injected `ServiceAsync.launchOnServiceThread`, i.e. fire-and-forget on `Service-Thread`. Because that context now comes from `AsyncFactory`, a test scheduler drains it like any other.
 - [fact] `save` enqueues the consumer's `updatedEvent(clone)` onto the EventBus before writing to disk. It is the only place the framework fires that event, so **every** persisted mutation announces itself and a handler is a general "state changed" hook rather than a per-call-site one.
 - [trap] That `enqueueEvent` sits **inside** the same guard as the write, so the no-op save fires no event at all: a mutation the consumer's `equals` cannot see is dropped silently *and* nothing downstream is told. A binding or handler waiting on `updatedEvent` therefore just never updates, with no failed write to notice — `forceUpdate = true` is what fixes both halves at once #silent-failure.
 - [trap] The event is enqueued *before* `stateService.saveState`, and `enqueueEvent` returns immediately, so a handler can observe the new state while the disk write is still in flight or has yet to begin. Never treat receiving the update event as proof the save file is on disk #order-dependent.
-- [fact] `load()` initialises from `stateService.loadState()` when a save file exists, otherwise builds `initNewState()` and immediately saves it.
+- [fact] `load()` initialises from `stateService.loadState()` when a save file exists, otherwise builds `initNewState()` and immediately saves it. It is the only initialization path, so a first `load()` is not a pure read: in a process with no save yet it writes one.
+- [risk] Initialization is check-then-act with no lock, so two threads making the first `load()` at once can both run `initNewState()` and `saveState()`. Not observed; it needs two threads to reach an uninitialized service.
 
 ## Relations
 
