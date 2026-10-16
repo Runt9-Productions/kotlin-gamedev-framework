@@ -36,7 +36,7 @@ abstract class ViewModel : Disposable {
 
         operator fun invoke(value: T) = set(value)
 
-        fun set(value: T) {
+        open fun set(value: T) {
             if (value == currentValue) return
             currentValue = value
             binds.forEach(Updatable::update)
@@ -65,9 +65,15 @@ abstract class ViewModel : Disposable {
         }
     }
 
-    inner class ListBinding<T : Any>(initialValue: List<T> = emptyList()) : Binding<List<T>>(initialValue) {
+    /**
+     * Holds a copy of every list it is given, never the list itself, so a caller's list mutated in place and set again
+     * compares unequal and notifies. [get] returns that copy.
+     */
+    inner class ListBinding<T : Any>(initialValue: List<T> = emptyList()) : Binding<List<T>>(initialValue.toList()) {
         private val addBinds = mutableSetOf<UpdatableValue<T>>()
         private val removeBinds = mutableSetOf<UpdatableValue<T>>()
+
+        override fun set(value: List<T>) = super.set(value.toList())
 
         fun bindAdd(updateFn: UpdatableValue<T>.(T) -> Unit) {
             val updatable = updatableValue(updateFn)
