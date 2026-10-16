@@ -9,6 +9,7 @@ coverage: partial
 sources:
   - gradle.properties
   - .github/workflows/publish.yml
+  - .github/workflows/version-check.yml
   - buildSrc/src/main/kotlin/kgdfw-common-plugin.gradle.kts
 ---
 
@@ -16,9 +17,9 @@ sources:
 
 > **Scope.** This note covers the publishing configuration in `kgdfw-common-plugin.gradle.kts`, `publish.yml` and `gradle.properties`. It does **not** cover the version catalog, the `useLocalKgdfw` composite-build path a consumer uses to iterate locally, or the settings/module structure that decides which projects apply the plugin.
 
-Read this before cutting a release, before changing anything under `publishing { }`, or when a consumer cannot resolve a version that appears to exist. The things most likely to be got wrong: **the tag is the version, not `gradle.properties`**, yet **the file must still be bumped to match or the publish fails**, and **a version showing up in the packages API does not mean the publish finished**.
+Read this before opening any PR that changes published code, before changing anything under `publishing { }` or in the workflows, or when a consumer cannot resolve a version that appears to exist. The things most likely to be got wrong: **merging into `master` is the release, so the PR itself must bump `version` in `gradle.properties`**, and **a version showing up in the packages API does not mean the publish finished**.
 
-**Partial re-verify 2026-09-26 (branch `claude/current-screen-route`):** only `publish.yml` and `gradle.properties` were re-read, after an agent opened a release PR without the `gradle.properties` bump, not knowing about the tag-versus-file assertion that the 2026-09-04 pass predates. The "tag is the version" section and its citations were corrected; everything else is carried forward. `verified:` still refers to the 2026-09-04 pass.
+**Partial re-verify 2026-10-16 (branch `claude/auto-tag-release`):** `publish.yml` was rewritten to publish and tag on merge, and `version-check.yml` added. Only the "Merging releases" section and its citations were rewritten from them; everything else is carried forward from the 2026-09-04 pass, which `verified:` still refers to.
 
 ## Observations
 
@@ -30,15 +31,19 @@ Read this before cutting a release, before changing anything under `publishing {
 - [fact] The same plugin applies `java-test-fixtures`, `withJavadocJar()` and `withSourcesJar()` (`kgdfw-common-plugin.gradle.kts:9,17-18`), so the `java` component a publication is built from carries the test-fixtures variant alongside the main jar.
 - [trap] `repositories { maven("https://jitpack.io") }` at `kgdfw-common-plugin.gradle.kts:28` is a **dependency-resolution** repository, not a publish target. Publishing moved off JitPack; seeing that line is not evidence it did not.
 
-### The tag is the version
+### Merging releases; the file is the version
+### Merging releases; the file is the version
 
-- [fact] `.github/workflows/publish.yml` triggers on a push of any tag matching `*.*.*` and runs `./gradlew -Pversion="${{ github.ref_name }}" publish`.
-- [trap] `version` in `gradle.properties:6` does not decide the published version: `-Pversion` overrides it in the workflow (`publish.yml:41`), so **editing `gradle.properties` alone publishes nothing and changes no published coordinate** — the released version is whatever the tag says.
-- [invariant] **But the publish fails unless `gradle.properties`' `version` equals the tag.** A step before the build compares the two and exits 1 with "Tag is X but gradle.properties says Y. Bump the file, then move the tag onto the new commit" (`publish.yml:25-32`). So tagging without the bump publishes nothing at all #silent-failure
-- [decision] The file is kept honest on purpose: it is what someone reads to learn what version kgdfw is at, and a consumer pinning a number that was never released fails downstream as an unresolvable dependency with no hint of the cause (`publish.yml:22-24`).
-- [fact] A release therefore runs: the release PR bumps `version` in `gradle.properties`; it merges; the merge commit is tagged with that same number; the consumer then bumps its pin. The pin bump is the consumer's own change, described in its own KB, not here.
-- [decision] The workflow grants `permissions: packages: write` and passes the run's own `GITHUB_TOKEN`. The stated intent is that the write-capable credential exists for one run and nothing write-capable sits in a developer's `gradle.properties` (`publish.yml:15-17,42-45`).
-- [fact] A consequence of that decision: there is no supported way to publish from a developer machine. Releasing is a tag push.
+- [fact] `.github/workflows/publish.yml` runs on every push to `master` and on any hand-pushed `*.*.*` tag (`publish.yml:7-9`), one run at a time (`concurrency: publish`, `publish.yml:12`).
+- [fact] On a `master` push it reads `version` from `gradle.properties`. If `refs/tags/<version>` already exists on the remote, the run publishes nothing (`publish.yml:43-45`); otherwise it runs `./gradlew -Pversion=<version> publish` and only then pushes the tag (`publish.yml:61`, `69-73`). Tagging after the publish means a failed publish leaves the version untagged, so the next merge retries it.
+- [invariant] **So every PR that changes published code bumps `version` in `gradle.properties`.** A merge without the bump finds its version already tagged and releases nothing, with a green run #silent-failure. `.github/workflows/version-check.yml` fails such a PR: it diffs `core`, `api`, `buildSrc`, `gradle`, `build.gradle.kts` and `settings.gradle.kts` against the base (unit-test sources excluded, test fixtures included since they ship), and requires a version that differs from the base's and is not already tagged.
+- [fact] The tag pushed by the run uses the run's own `GITHUB_TOKEN`, and GitHub starts no workflow run for a push made with that token, so the auto-tag does not re-trigger the tag path.
+- [invariant] A hand-pushed tag still publishes, but only if it equals the file's `version`; otherwise the run exits 1 with "Tag is X but gradle.properties says Y" (`publish.yml:37-41`).
+- [decision] The file is kept honest on purpose: it is what someone reads to learn what version kgdfw is at, and a consumer pinning a number that was never released fails downstream as an unresolvable dependency with no hint of the cause.
+- [fact] A release therefore runs: the PR bumps `version`; it merges; the workflow publishes and tags; the consumer then bumps its pin. The pin bump is the consumer's own change, described in its own KB, not here.
+- [decision] The workflow grants `packages: write` (publish) and `contents: write` (the tag) and passes the run's own `GITHUB_TOKEN`, so the write-capable credential exists for one run and nothing write-capable sits in a developer's `gradle.properties` (`publish.yml:18-22`, `62-66`).
+- [fact] A consequence of that decision: there is no supported way to publish from a developer machine.
+- [history] Until 2026-10-16 releasing was a hand-pushed tag, and twice an agent's PR left `gradle.properties` unbumped (2026-09-26 and kgdfw PR 23), because the bump read as part of "cutting a release" rather than of the feature PR. Auto-tag on merge plus the PR check replaced it.
 
 ### Credentials
 

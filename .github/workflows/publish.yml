@@ -1,45 +1,73 @@
 name: Publish
 
-# The tag is the version. gradle.properties carries a version too, but it is only the default for local builds --
-# what ships is whatever the tag says, so the two cannot disagree in a published artifact.
+# A merge into master releases the version gradle.properties names, unless that version is already tagged (a merge
+# that changed nothing published). The tag is pushed after the publish with the run's own token, and GitHub starts
+# no workflow run for a push made with that token, so the tag trigger below fires only for a tag pushed by hand.
 on:
   push:
+    branches: [master]
     tags: ['*.*.*']
+
+# Two merges in quick succession would otherwise both see their version untagged.
+concurrency: publish
 
 jobs:
   publish:
     runs-on: ubuntu-latest
 
     # packages:write is the whole point of publishing from here: the token exists for one run and nothing
-    # write-capable has to sit in a developer's gradle.properties.
+    # write-capable has to sit in a developer's gradle.properties. contents:write pushes the tag.
     permissions:
-      contents: read
+      contents: write
       packages: write
 
     steps:
       - uses: actions/checkout@v7
 
-      # Not guarding the published version -- `-Pversion` below already settles that, whatever the file says. This
-      # guards the file from lying: it is what someone reads to find out what kgdfw is at, and a consumer pinning
-      # a number that was never released fails downstream as an unresolvable dependency with no hint of the cause.
-      - name: Assert gradle.properties matches the tag
+      - name: Resolve the version
+        id: version
         run: |
           FILE_VERSION="$(sed -n 's/^version=//p' gradle.properties | tr -d '[:space:]')"
 
-          if [ "$FILE_VERSION" != "$GITHUB_REF_NAME" ]; then
-            echo "::error::Tag is $GITHUB_REF_NAME but gradle.properties says ${FILE_VERSION:-<unset>}. Bump the file, then move the tag onto the new commit."
+          if [ -z "$FILE_VERSION" ]; then
+            echo "::error::gradle.properties has no version."
             exit 1
           fi
 
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            if [ "$FILE_VERSION" != "$GITHUB_REF_NAME" ]; then
+              echo "::error::Tag is $GITHUB_REF_NAME but gradle.properties says $FILE_VERSION. Bump the file, then move the tag onto the new commit."
+              exit 1
+            fi
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          elif git ls-remote --exit-code --tags origin "refs/tags/$FILE_VERSION" > /dev/null; then
+            echo "$FILE_VERSION is already tagged, so this merge releases nothing."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "version=$FILE_VERSION" >> "$GITHUB_OUTPUT"
+
       - uses: actions/setup-java@v6
+        if: steps.version.outputs.publish == 'true'
         with:
           distribution: temurin
           java-version: '17'
 
       - uses: gradle/actions/setup-gradle@v6
+        if: steps.version.outputs.publish == 'true'
 
-      - run: ./gradlew -Pversion="${{ github.ref_name }}" publish
+      - run: ./gradlew -Pversion="${{ steps.version.outputs.version }}" publish
+        if: steps.version.outputs.publish == 'true'
         env:
           # Read by the GitHubPackages repository in kgdfw-common-plugin.gradle.kts. GITHUB_ACTOR is set by the
           # runner already, so only the token needs passing.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # After the publish, so a failed publish leaves the version untagged and the next merge retries it.
+      - name: Tag the release
+        if: steps.version.outputs.publish == 'true' && github.ref_type == 'branch'
+        run: |
+          git tag "${{ steps.version.outputs.version }}"
+          git push origin "refs/tags/${{ steps.version.outputs.version }}"
