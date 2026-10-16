@@ -249,7 +249,8 @@ That is also why **unknown frontmatter keys are a hard error**. Adding a key to 
 | `[invariant]` | Holds today, and code depends on it holding. Breaking it breaks something distant.                                                          |
 | `[risk]`      | Plausible hazard, not demonstrated.                                                                                                         |
 | `[question]`  | Genuinely open.                                                                                                                             |
-| `[decision]`  | A choice made deliberately, with the reasoning.                                                                                             |
+| `[decision]`  | **The owner's ruling only**, attributed as `[owner, <where>, <date>]`. Never an agent's own choice.                                                                                             |
+| `[proposal]`  | A choice an agent made, or its guess at what the owner wants, with the reasoning and a status: `open`, `approved` or `rejected`. It becomes a `[decision]` only when the owner approves it. |
 | `[history]`   | Why it is this way, usually a ticket or commit.                                                                                             |
 | `[status]`    | Where a piece of time-bound work currently stands. `projects/` notes only — a `domains/` note describing the code should not have a status. |
 

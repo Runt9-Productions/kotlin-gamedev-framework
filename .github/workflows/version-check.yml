@@ -1,0 +1,47 @@
+name: Version bump
+
+# A merge into master releases only when gradle.properties names an untagged version, so a PR that changes what gets
+# published without bumping it would merge cleanly and release nothing.
+on:
+  pull_request:
+    branches: [master]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Require a version bump when published code changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          # The published modules and the build that assembles them. Unit tests ship in no jar; test fixtures do.
+          CHANGED="$(git diff --name-only "$BASE_SHA"...HEAD -- \
+            core api buildSrc gradle build.gradle.kts settings.gradle.kts \
+            ':(exclude)core/src/test' ':(exclude)api/src/test')"
+
+          if [ -z "$CHANGED" ]; then
+            echo "Nothing published changed."
+            exit 0
+          fi
+
+          version_at() { git show "$1:gradle.properties" | sed -n 's/^version=//p' | tr -d '[:space:]'; }
+          BASE_VERSION="$(version_at "$BASE_SHA")"
+          HEAD_VERSION="$(version_at HEAD)"
+
+          if [ "$HEAD_VERSION" = "$BASE_VERSION" ]; then
+            echo "::error::Published code changed but gradle.properties is still $BASE_VERSION. Bump version; the merge releases it."
+            echo "$CHANGED"
+            exit 1
+          fi
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$HEAD_VERSION" > /dev/null; then
+            echo "::error::$HEAD_VERSION is already released. Bump to the next version."
+            exit 1
+          fi
