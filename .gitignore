@@ -6,7 +6,6 @@ build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
-.agentbridge
 out/
 
 # Python bytecode from .claude/reference/_validate.py
