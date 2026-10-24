@@ -34,7 +34,6 @@ Read this before opening any PR that changes published code, before changing any
 - [fact] Dependencies resolve from `mavenCentral()` alone (`kgdfw-common-plugin.gradle.kts:25-27`). JitPack and oss.sonatype were dropped in 2.0.12 along with `com.github.raeleus.stripe:freetype`, the one dependency that needed JitPack; nothing used its classes, since `ParameterAvailableFreeTypeSkin` reads FreeType fonts from skin JSON on plain libGDX.
 
 ### Merging releases; the file is the version
-### Merging releases; the file is the version
 
 - [fact] `.github/workflows/publish.yml` runs on every push to `master` and on any hand-pushed `*.*.*` tag (`publish.yml:7-9`), one run at a time (`concurrency: publish`, `publish.yml:12`).
 - [fact] On a `master` push it reads `version` from `gradle.properties`. If `refs/tags/<version>` already exists on the remote, the run publishes nothing (`publish.yml:43-45`); otherwise it runs `./gradlew -Pversion=<version> publish` and only then pushes the tag (`publish.yml:61`, `69-73`). Tagging after the publish means a failed publish leaves the version untagged, so the next merge retries it.
