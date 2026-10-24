@@ -24,8 +24,6 @@ kotlin {
 
 repositories {
     mavenCentral()
-    maven("https://oss.sonatype.org/content/repositories/releases/")
-    maven("https://jitpack.io")
 }
 
 tasks.test {

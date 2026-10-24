@@ -30,7 +30,6 @@ dependencies {
     apiGdxNative("gdx-platform", "gdx-freetype-platform")
     api(libs.gdx.ai)
     apiKorlibs("klock")
-    api(libs.freetype.stripe)
     api(libs.kotlin.logging)
     api(libs.slf4j.api)
     api(libs.logback.classic)
