@@ -19,7 +19,7 @@ sources:
 
 # Build and Release
 
-> **Scope.** This note covers the publishing configuration in `kgdfw-common-plugin.gradle.kts`, `publish.yml` and `gradle.properties`, the PR workflow's checks, and Dependabot. It does **not** cover the version catalog's contents, the `useLocalKgdfw` composite-build path a consumer uses to iterate locally, the settings/module structure that decides which projects apply the plugin, or the guard job's lint rules, which live in `.github/scripts/guard.py`'s docstring.
+> **Scope.** This note covers the publishing configuration in `kgdfw-common-plugin.gradle.kts`, `publish.yml` and `gradle.properties`, the PR workflow's checks, and Dependabot. It does **not** cover the version catalog's contents, the `useLocalKgdfw` composite-build path a consumer uses to iterate locally, or the settings/module structure that decides which projects apply the plugin.
 
 Read this before opening any PR that changes published code, before changing anything under `publishing { }` or in the workflows, or when a consumer cannot resolve a version that appears to exist. The things most likely to be got wrong: **merging into `master` is the release, so the PR itself must bump `version` in `gradle.properties`**, and **a version showing up in the packages API does not mean the publish finished**.
 
@@ -48,12 +48,11 @@ Read this before opening any PR that changes published code, before changing any
 
 ### Pull request checks
 
-- [fact] `.github/workflows/pr.yml` runs on every pull request, with no branch or path filter on the trigger (`pr.yml:5-6`). Its `gate` job needs `changes`, `test`, `version` and `guard`, runs under `if: always()`, and fails when any of them failed or was cancelled (`pr.yml:129-143`). `gate` is the one check branch protection is meant to require.
+- [fact] `.github/workflows/pr.yml` runs on every pull request, with no branch or path filter on the trigger (`pr.yml:5-6`). Its `gate` job needs `changes`, `test`, `version` and `guard`, runs under `if: always()`, and fails when any of them failed or was cancelled (`pr.yml:135-149`). `gate` is the one check branch protection is meant to require.
 - [trap] Keep `if: always()` on `gate`, and keep path filters off the trigger. A job whose dependency failed is skipped, a skipped required check counts as passing, and a required check whose workflow never starts leaves the PR waiting on it forever #silent-failure. That is GitHub's documented behavior, not measured here. A job skipped by its own `if` (`test` on a docs-only PR, `version` on a PR not into `master`) is a pass by design.
 - [fact] The `changes` job skips `test` when every changed path ends in `.md` or sits under `.claude/` (`pr.yml:28-34`, `36-38`). `guard` and `version` do not depend on it.
 - [fact] Both `pr.yml`'s `test` job and `publish.yml`'s run `.github/actions/gradle-build`, which runs `./gradlew build --console=plain`, tables the `TEST-SUMMARY` lines that the listener in `kgdfw-common-plugin.gradle.kts:39-55` prints, and fails when any test task reports `total=0` or no task reports at all (`action.yml:12`, `65-84`). Without that step, a build whose test tasks discovered nothing is green #silent-failure.
-- [fact] `guard` lints the lines a PR adds under `.claude/`, to any `CLAUDE.md` and under `.github/` with `.github/scripts/guard.py`, run from the base commit's copy so a PR cannot weaken the script that judges it (`pr.yml:94-125`). It runs on every PR, docs-only ones included. Its rules are in the script's docstring.
-- [risk] The base-commit copy protects only as long as a PR author cannot also edit `pr.yml`, which rests on the bot's GitHub App lacking the `workflows` permission. Nothing in this repository establishes that.
+- [fact] `guard` is one shell step that fails when a file the PR adds or modifies under `.claude/`, or any `CLAUDE.md`, holds a zero-width, bidirectional, byte-order-mark or Unicode tag character anywhere in the file, not only on added lines (`pr.yml:94-131`). It runs on every PR, docs-only ones included. `.github/` is not checked.
 
 ### Dependency updates
 
