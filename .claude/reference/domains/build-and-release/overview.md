@@ -3,25 +3,25 @@ title: Build and Release
 type: note
 permalink: build-and-release/overview
 tags: [ build, publishing, release ]
-verified: 2026-09-04
-branch: master
+verified: 2026-10-24
+branch: claude/ci-hardening
 coverage: partial
 sources:
   - gradle.properties
   - .github/workflows/publish.yml
-  - .github/workflows/version-check.yml
+  - .github/workflows/pr.yml
+  - .github/workflows/dependency-submission.yml
+  - .github/dependabot.yml
+  - gradle/wrapper/gradle-wrapper.properties
   - buildSrc/src/main/kotlin/kgdfw-common-plugin.gradle.kts
+  - core/build.gradle.kts
 ---
 
 # Build and Release
 
-> **Scope.** This note covers the publishing configuration in `kgdfw-common-plugin.gradle.kts`, `publish.yml` and `gradle.properties`. It does **not** cover the version catalog, the `useLocalKgdfw` composite-build path a consumer uses to iterate locally, or the settings/module structure that decides which projects apply the plugin.
+> **Scope.** This note covers the publishing configuration in `kgdfw-common-plugin.gradle.kts`, `publish.yml` and `gradle.properties`, the PR workflow's checks, and Dependabot. It does **not** cover the version catalog's contents, the `useLocalKgdfw` composite-build path a consumer uses to iterate locally, or the settings/module structure that decides which projects apply the plugin.
 
 Read this before opening any PR that changes published code, before changing anything under `publishing { }` or in the workflows, or when a consumer cannot resolve a version that appears to exist. The things most likely to be got wrong: **merging into `master` is the release, so the PR itself must bump `version` in `gradle.properties`**, and **a version showing up in the packages API does not mean the publish finished**.
-
-**Partial re-verify 2026-10-16 (branch `claude/auto-tag-release`):** `publish.yml` was rewritten to publish and tag on merge, and `version-check.yml` added. Only the "Merging releases" section and its citations were rewritten from them; everything else is carried forward from the 2026-09-04 pass, which `verified:` still refers to.
-
-**Partial re-verify 2026-10-24 (branch `claude/remove-stripe`):** every `kgdfw-common-plugin.gradle.kts` citation was re-read against that file after its JitPack and oss.sonatype repositories were removed. Nothing else was.
 
 ## Observations
 
@@ -36,14 +36,36 @@ Read this before opening any PR that changes published code, before changing any
 ### Merging releases; the file is the version
 
 - [fact] `.github/workflows/publish.yml` runs on every push to `master` and on any hand-pushed `*.*.*` tag (`publish.yml:7-9`), one run at a time (`concurrency: publish`, `publish.yml:12`).
-- [fact] On a `master` push it reads `version` from `gradle.properties`. If `refs/tags/<version>` already exists on the remote, the run publishes nothing (`publish.yml:43-45`); otherwise it runs `./gradlew -Pversion=<version> publish` and only then pushes the tag (`publish.yml:61`, `69-73`). Tagging after the publish means a failed publish leaves the version untagged, so the next merge retries it.
-- [invariant] **So every PR that changes published code bumps `version` in `gradle.properties`.** A merge without the bump finds its version already tagged and releases nothing, with a green run #silent-failure. `.github/workflows/version-check.yml` fails such a PR: it diffs `core`, `api`, `buildSrc`, `gradle`, `build.gradle.kts` and `settings.gradle.kts` against the base (unit-test sources excluded, test fixtures included since they ship), and requires a version that differs from the base's and is not already tagged.
+- [fact] On a `master` push the `version` job reads `version` from `gradle.properties`. If `refs/tags/<version>` already exists on the remote, the run publishes nothing (`publish.yml:43-45`). Otherwise the `test` job runs the full build and its tests (`publish.yml:54-71`), and only if that succeeds does the `publish` job run `./gradlew -Pversion=<version> publish` and then push the tag (`publish.yml:74-76`, `98`, `105-109`). A failing test therefore publishes nothing and tags nothing, and tagging after the publish means a failed publish leaves the version untagged, so the next merge retries it.
+- [decision] The tests run in a job of their own, without the write token: checkout leaves the job's token in `.git/config`, so a test step inside the `publish` job would run every test and test dependency with `packages: write` and `contents: write` in reach (`publish.yml:52-53`). [owner, kgdfw PR 28 review (D15), 2026-10-24]
+- [invariant] **So every PR that changes published code bumps `version` in `gradle.properties`.** A merge without the bump finds its version already tagged and releases nothing, with a green run #silent-failure. The `version` job in `.github/workflows/pr.yml` fails such a PR (`pr.yml:63-98`): on a PR into `master` only, it diffs `core`, `api`, `buildSrc`, `gradle`, `build.gradle.kts` and `settings.gradle.kts` against the base (unit-test sources excluded, test fixtures included since they ship), and requires a version that differs from the base's and is not already tagged.
+- [decision] PRs opened by `dependabot[bot]` skip that `version` job (`pr.yml:64`). Dependabot never bumps `gradle.properties`, so a dependency update merges without releasing and ships with the next release that does bump. [owner, kgdfw PR 28 review (D14), 2026-10-24]
 - [fact] The tag pushed by the run uses the run's own `GITHUB_TOKEN`, and GitHub starts no workflow run for a push made with that token, so the auto-tag does not re-trigger the tag path.
 - [invariant] A hand-pushed tag still publishes, but only if it equals the file's `version`; otherwise the run exits 1 with "Tag is X but gradle.properties says Y" (`publish.yml:37-41`).
 - [decision] The file is kept honest on purpose: it is what someone reads to learn what version kgdfw is at, and a consumer pinning a number that was never released fails downstream as an unresolvable dependency with no hint of the cause.
 - [fact] A release therefore runs: the PR bumps `version`; it merges; the workflow publishes and tags; the consumer then bumps its pin. The pin bump is the consumer's own change, described in its own KB, not here.
-- [decision] The workflow grants `packages: write` (publish) and `contents: write` (the tag) and passes the run's own `GITHUB_TOKEN`, so the write-capable credential exists for one run and nothing write-capable sits in a developer's `gradle.properties` (`publish.yml:18-22`, `62-66`).
+- [decision] The `publish` job alone grants `packages: write` (publish) and `contents: write` (the tag) and passes the run's own `GITHUB_TOKEN`, so the write-capable credential exists for one job and nothing write-capable sits in a developer's `gradle.properties` (`publish.yml:79-83`, `98-102`). The workflow default is `contents: read` (`publish.yml:14-15`). [owner, kgdfw PR 28 review (D15), 2026-10-24]
+- [fact] The `publish` job runs `setup-gradle` with `cache-disabled: true` (`publish.yml:93-96`), so no cache entry written by another job is restored into the job holding the write token. setup-gradle otherwise restores `master`'s entries into every job; the input is documented at the pinned v6.4.0 as neither reading nor writing the cache.
 - [fact] A consequence of that decision: there is no supported way to publish from a developer machine.
+
+### Pull request checks
+
+- [fact] `.github/workflows/pr.yml` runs on every pull request, with no branch or path filter on the trigger (`pr.yml:5-6`). Its `gate` job needs `changes`, `test`, `version` and `guard`, runs under `if: always()`, and fails when any of them failed or was cancelled (`pr.yml:135-148`). `gate` is the one check branch protection is meant to require.
+- [trap] Keep `if: always()` on `gate`, and keep path filters off the trigger. A job whose dependency failed is skipped, a skipped required check counts as passing, and a required check whose workflow never starts leaves the PR waiting on it forever #silent-failure. That is GitHub's documented behavior, not measured here. A job skipped by its own `if` (`test` on a docs-only PR, `version` on a PR not into `master` or opened by Dependabot) is a pass by design.
+- [fact] The `changes` job skips `test` when every changed path ends in `.md` or sits under `.claude/` (`pr.yml:30-39`, `41-58`). `guard` and `version` do not depend on it.
+- [fact] Both test jobs run plain `./gradlew build --console=plain` (`pr.yml:41-58`, `publish.yml:54-71`), with no step checking the test count. Gradle fails a test task that has test sources but discovers no tests (`failOnNoDiscoveredTests`, default true since Gradle 9.0), and the wrapper is 9.7.0 (`gradle-wrapper.properties:5`). Setting that property to false would bring back a green build that ran nothing #silent-failure.
+- [trap] Keep CI logic in workflows under `.github/workflows/`, never in a composite action under `.github/actions/`. GitHub's "Choosing permissions for a GitHub App" ties the `workflows` permission, which the bot does not hold, to files in the `.github/workflows` directory, so a file under `.github/actions/` is one the bot can push, and a check living there could change without the owner. Read 2026-10-24; no bot push of a `.github/actions/` file has been tried.
+- [fact] `guard` is one shell step that fails when a file the PR adds or modifies under `.claude/`, or any `CLAUDE.md`, holds a zero-width, bidirectional, byte-order-mark or Unicode tag character anywhere in the file, not only on added lines, and searches a file holding a NUL byte as text rather than skipping it as binary (`pr.yml:101-131`). It runs on every PR, docs-only ones included. `.github/` is not checked.
+
+### Dependency updates
+
+- [fact] `.github/workflows/dependency-submission.yml` submits the resolved Gradle dependency graph on every push to `master` (`dependency-submission.yml:7`), which is what lets Dependabot alerts see transitive dependencies.
+- [invariant] It is two jobs, and must stay two. `generate` runs Gradle with a read-only token that checkout does not persist into `.git/config`, and uploads the graph as an artifact (`dependency-submission.yml:16-32`). `submit` holds `contents: write` and runs only the action's `download-and-submit`, with no checkout and no Gradle (`dependency-submission.yml:37-47`). Folded into one job, every plugin and dependency Gradle resolves runs with the write token in reach.
+- [fact] `.github/dependabot.yml` updates the `gradle` and `github-actions` ecosystems weekly with a seven-day cooldown, and declares no registry, since everything resolves from Maven Central and the plugin portal.
+- [decision] All gradle updates share one group (`dependabot.yml:15-17`). [owner, kgdfw PR 28 review (D14), 2026-10-24]
+- [trap] That group still yields one PR per directory, so up to two a week (`/` and `/buildSrc`), not one. GitHub's changelog of 2026-02-24 says Dependabot opens a separate PR per directory, and its cross-directory option (`group-by: dependency-name`) consolidates per dependency, not per group. Read 2026-10-24; not yet seen on a real run.
+- [trap] **The gradle entry lists `/buildSrc` as well as `/`; keep both** (`dependabot.yml:7-9`). Dependabot reads `gradle/libs.versions.toml` only at a configured directory's own root, so from `/` alone `buildSrc/gradle/libs.versions.toml`, which holds the Kotlin, serialization, Kover and versions plugins, is never updated and nothing reports it #silent-failure. Read on 2026-10-24 in dependabot-core's `gradle/lib/dependabot/gradle/file_fetcher.rb` (`version_catalog_file` returns nothing unless the scanned directory is the root, and `buildSrc` is scanned as a nested build). Not yet seen on a real Dependabot run.
+- [risk] libGDX, KTX and korlibs are never offered. `core/build.gradle.kts` builds their coordinates as strings (`apiGdx`, `apiKtx`, `apiKorlibs`) from catalog `[versions]` entries that no `[libraries]` row references, which Dependabot cannot parse. Inferred from how Dependabot parses catalogs, not observed. They move by hand, and KTX's release tracks a libGDX version, so a bump to one is a bump to both.
 - [history] Until 2026-10-16 releasing was a hand-pushed tag, and twice an agent's PR left `gradle.properties` unbumped (2026-09-26 and kgdfw PR 23), because the bump read as part of "cutting a release" rather than of the feature PR. Auto-tag on merge plus the PR check replaced it.
 
 ### Credentials

@@ -1,0 +1,48 @@
+name: Dependency submission
+
+# Sends the resolved Gradle dependency graph to GitHub, which is what Dependabot alerts read: without it they see
+# only what they can parse out of the build files, and no transitive dependency at all.
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  # Runs the build, so it gets no write token: every plugin and dependency Gradle resolves runs in this job, and a
+  # reviewed Dependabot merge is how a compromised one would arrive. persist-credentials: false keeps the token
+  # out of .git/config, where the build could read it.
+  generate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # One day: `submit` reads it minutes later, and artifact storage is metered.
+      - uses: gradle/actions/dependency-submission@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        with:
+          dependency-graph: generate-and-upload
+          artifact-retention-days: 1
+
+  # Holds contents: write, so it checks nothing out and runs no Gradle: it downloads the graph `generate` saved in
+  # this run and submits it. Do not fold the two jobs together.
+  submit:
+    needs: generate
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: gradle/actions/dependency-submission@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        with:
+          dependency-graph: download-and-submit
+          cache-disabled: true

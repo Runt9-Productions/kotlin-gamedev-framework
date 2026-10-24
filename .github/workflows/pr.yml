@@ -1,0 +1,148 @@
+name: PR
+
+# `gate` is the one required check. Docs-only PRs are skipped by the `changes` job, never by a paths-ignore on the
+# trigger: a required check whose workflow never starts leaves the PR waiting on it forever.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  BASE_SHA: ${{ github.event.pull_request.base.sha }}
+  HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - id: diff
+        name: Detect a change outside docs and .claude
+        run: |
+          changed="$(git diff --name-only "$BASE_SHA...$HEAD_SHA")"
+          if grep -qvE '(\.md$|^\.claude/)' <<< "$changed"; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+            echo "Only docs or .claude changed; skipping tests."
+          fi
+
+  test:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+
+      - run: ./gradlew build --console=plain
+
+  # A merge into master releases only when gradle.properties names an untagged version, so a PR that changes what
+  # gets published without bumping it would merge cleanly and release nothing. Dependabot PRs are exempt: Dependabot
+  # never bumps the file, and its updates ship with the next release instead.
+  version:
+    if: github.event.pull_request.base.ref == 'master' && github.event.pull_request.user.login != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Require a version bump when published code changes
+        run: |
+          # The published modules and the build that assembles them. Unit tests ship in no jar; test fixtures do.
+          CHANGED="$(git diff --name-only "$BASE_SHA...$HEAD_SHA" -- \
+            core api buildSrc gradle build.gradle.kts settings.gradle.kts \
+            ':(exclude)core/src/test' ':(exclude)api/src/test')"
+
+          if [ -z "$CHANGED" ]; then
+            echo "Nothing published changed."
+            exit 0
+          fi
+
+          version_at() { git show "$1:gradle.properties" | sed -n 's/^version=//p' | tr -d '[:space:]'; }
+          BASE_VERSION="$(version_at "$BASE_SHA")"
+          # HEAD, the merge commit, not HEAD_SHA: the merge commit holds the version this merge would release.
+          HEAD_VERSION="$(version_at HEAD)"
+
+          if [ "$HEAD_VERSION" = "$BASE_VERSION" ]; then
+            echo "::error::Published code changed but gradle.properties is still $BASE_VERSION. Bump version; the merge releases it."
+            echo "$CHANGED"
+            exit 1
+          fi
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$HEAD_VERSION" > /dev/null; then
+            echo "::error::$HEAD_VERSION is already released. Bump to the next version."
+            exit 1
+          fi
+
+  # No skip on any PR: a docs-only or .claude-only PR is exactly the one that changes what agents are told.
+  guard:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      # Characters that render as nothing or reorder the text around them, so an instruction can hide in a file
+      # that reads clean: zero-width and bidirectional controls, the byte-order mark, and Unicode tag characters.
+      # Whole files rather than added lines. -a, never -I: -I skips a file holding a NUL byte as binary, so one NUL
+      # hides the rest of that file. grep exits 2 on an error, which must fail the step: under a plain `if grep` it
+      # would read as "no match".
+      - name: No invisible characters in agent instructions
+        run: |
+          mapfile -d '' files < <(git diff -z --name-only --diff-filter=d "$BASE_SHA...$HEAD_SHA" \
+            | grep -zE '^\.claude/|(^|/)CLAUDE\.md$' || true)
+          if (( ${#files[@]} == 0 )); then
+            echo "No file under .claude/ and no CLAUDE.md changed."
+            exit 0
+          fi
+
+          status=0
+          LC_ALL=C.UTF-8 grep -nHaP \
+            '[\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2060}-\x{2064}\x{2066}-\x{2069}\x{FEFF}\x{E0000}-\x{E007F}]' \
+            "${files[@]}" || status=$?
+          case $status in
+            0) echo "::error::The lines above hold a zero-width, bidirectional or tag character."; exit 1 ;;
+            1) echo "${#files[@]} changed file(s) checked, none holds an invisible character." ;;
+            *) echo "::error::grep failed (exit $status), so the files were not checked."; exit 1 ;;
+          esac
+
+  # Runs even when a job it needs failed: with a plain `needs` this job would be skipped, and GitHub passes a
+  # skipped required check. A job skipped by its own `if` (tests on a docs-only PR) is fine.
+  gate:
+    needs: [changes, test, version, guard]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Fail if any needed job failed or was cancelled
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Job results: $RESULTS"
+          if [[ " $RESULTS " == *" failure "* || " $RESULTS " == *" cancelled "* ]]; then
+            exit 1
+          fi
