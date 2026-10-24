@@ -11,15 +11,15 @@ on:
 # Two merges in quick succession would otherwise both see their version untagged.
 concurrency: publish
 
-jobs:
-  publish:
-    runs-on: ubuntu-latest
+permissions:
+  contents: read
 
-    # packages:write is the whole point of publishing from here: the token exists for one run and nothing
-    # write-capable has to sit in a developer's gradle.properties. contents:write pushes the tag.
-    permissions:
-      contents: write
-      packages: write
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      publish: ${{ steps.version.outputs.publish }}
+      version: ${{ steps.version.outputs.version }}
 
     steps:
       - uses: actions/checkout@v7
@@ -49,17 +49,48 @@ jobs:
 
           echo "version=$FILE_VERSION" >> "$GITHUB_OUTPUT"
 
+  # A job of its own so the tests never run with the write token in reach: checkout leaves the token in
+  # .git/config, readable by every test and every test dependency.
+  test:
+    needs: version
+    if: needs.version.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
       - uses: actions/setup-java@v6
-        if: steps.version.outputs.publish == 'true'
         with:
           distribution: temurin
           java-version: '17'
 
       - uses: gradle/actions/setup-gradle@v6
-        if: steps.version.outputs.publish == 'true'
 
-      - run: ./gradlew -Pversion="${{ steps.version.outputs.version }}" publish
-        if: steps.version.outputs.publish == 'true'
+      - uses: ./.github/actions/gradle-build
+
+  # A failed or cancelled test job skips this one, so nothing is published and no tag is pushed.
+  publish:
+    needs: [version, test]
+    if: needs.version.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+
+    # packages:write is the whole point of publishing from here: the token exists for one run and nothing
+    # write-capable has to sit in a developer's gradle.properties. contents:write pushes the tag.
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - run: ./gradlew -Pversion="${{ needs.version.outputs.version }}" publish
         env:
           # Read by the GitHubPackages repository in kgdfw-common-plugin.gradle.kts. GITHUB_ACTOR is set by the
           # runner already, so only the token needs passing.
@@ -67,7 +98,7 @@ jobs:
 
       # After the publish, so a failed publish leaves the version untagged and the next merge retries it.
       - name: Tag the release
-        if: steps.version.outputs.publish == 'true' && github.ref_type == 'branch'
+        if: github.ref_type == 'branch'
         run: |
-          git tag "${{ steps.version.outputs.version }}"
-          git push origin "refs/tags/${{ steps.version.outputs.version }}"
+          git tag "${{ needs.version.outputs.version }}"
+          git push origin "refs/tags/${{ needs.version.outputs.version }}"
