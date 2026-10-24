@@ -109,8 +109,9 @@ jobs:
 
       # Characters that render as nothing or reorder the text around them, so an instruction can hide in a file
       # that reads clean: zero-width and bidirectional controls, the byte-order mark, and Unicode tag characters.
-      # Whole files rather than added lines; -I skips binary files. grep exits 2 on an error, which must fail the
-      # step: under a plain `if grep` it would read as "no match".
+      # Whole files rather than added lines. -a, never -I: -I skips a file holding a NUL byte as binary, so one NUL
+      # hides the rest of that file. grep exits 2 on an error, which must fail the step: under a plain `if grep` it
+      # would read as "no match".
       - name: No invisible characters in agent instructions
         run: |
           mapfile -d '' files < <(git diff -z --name-only --diff-filter=d "$BASE_SHA...$HEAD_SHA" \
@@ -121,7 +122,7 @@ jobs:
           fi
 
           status=0
-          LC_ALL=C.UTF-8 grep -nHIP \
+          LC_ALL=C.UTF-8 grep -nHaP \
             '[\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2060}-\x{2064}\x{2066}-\x{2069}\x{FEFF}\x{E0000}-\x{E007F}]' \
             "${files[@]}" || status=$?
           case $status in
