@@ -1,0 +1,20 @@
+version: 2
+
+updates:
+  - package-ecosystem: gradle
+    # /buildSrc as well as /: Dependabot reads gradle/libs.versions.toml only at a configured directory's own root,
+    # so from / alone buildSrc's catalog (the Kotlin, serialization, Kover and versions plugins) is never updated.
+    directories:
+      - /
+      - /buildSrc
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
