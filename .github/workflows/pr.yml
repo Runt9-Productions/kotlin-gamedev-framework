@@ -8,6 +8,14 @@ on:
 permissions:
   contents: read
 
+env:
+  BASE_SHA: ${{ github.event.pull_request.base.sha }}
+  HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+
+defaults:
+  run:
+    shell: bash
+
 jobs:
   changes:
     runs-on: ubuntu-latest
@@ -21,11 +29,8 @@ jobs:
 
       - id: diff
         name: Detect a change outside docs and .claude
-        shell: bash
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
-          changed="$(git diff --name-only "$BASE_SHA" HEAD)"
+          changed="$(git diff --name-only "$BASE_SHA...$HEAD_SHA")"
           if grep -qvE '(\.md$|^\.claude/)' <<< "$changed"; then
             echo "code=true" >> "$GITHUB_OUTPUT"
           else
@@ -62,11 +67,9 @@ jobs:
           fetch-depth: 0
 
       - name: Require a version bump when published code changes
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           # The published modules and the build that assembles them. Unit tests ship in no jar; test fixtures do.
-          CHANGED="$(git diff --name-only "$BASE_SHA"...HEAD -- \
+          CHANGED="$(git diff --name-only "$BASE_SHA...$HEAD_SHA" -- \
             core api buildSrc gradle build.gradle.kts settings.gradle.kts \
             ':(exclude)core/src/test' ':(exclude)api/src/test')"
 
@@ -77,6 +80,7 @@ jobs:
 
           version_at() { git show "$1:gradle.properties" | sed -n 's/^version=//p' | tr -d '[:space:]'; }
           BASE_VERSION="$(version_at "$BASE_SHA")"
+          # HEAD, the merge commit, not HEAD_SHA: the merge commit holds the version this merge would release.
           HEAD_VERSION="$(version_at HEAD)"
 
           if [ "$HEAD_VERSION" = "$BASE_VERSION" ]; then
@@ -93,14 +97,6 @@ jobs:
   # No skip on any PR: a docs-only or .claude-only PR is exactly the one that changes what agents are told.
   guard:
     runs-on: ubuntu-latest
-
-    env:
-      BASE_SHA: ${{ github.event.pull_request.base.sha }}
-      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-
-    defaults:
-      run:
-        shell: bash
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -140,7 +136,6 @@ jobs:
 
     steps:
       - name: Fail if any needed job failed or was cancelled
-        shell: bash
         env:
           RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
