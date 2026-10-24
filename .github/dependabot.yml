@@ -11,6 +11,10 @@ updates:
       interval: weekly
     cooldown:
       default-days: 7
+    # Dependabot still opens one PR per directory for a group, so this is at most two a week, not one.
+    groups:
+      gradle:
+        patterns: ['*']
 
   - package-ecosystem: github-actions
     directory: /

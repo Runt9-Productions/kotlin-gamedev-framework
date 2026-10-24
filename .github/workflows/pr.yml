@@ -44,9 +44,10 @@ jobs:
     uses: ./.github/workflows/gradle-build.yml
 
   # A merge into master releases only when gradle.properties names an untagged version, so a PR that changes what
-  # gets published without bumping it would merge cleanly and release nothing.
+  # gets published without bumping it would merge cleanly and release nothing. Dependabot PRs are exempt: Dependabot
+  # never bumps the file, and its updates ship with the next release instead.
   version:
-    if: github.event.pull_request.base.ref == 'master'
+    if: github.event.pull_request.base.ref == 'master' && github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
 
     steps:
