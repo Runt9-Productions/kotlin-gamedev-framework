@@ -1,5 +1,0 @@
-# JitPack builds with JDK 8 unless told otherwise, and Gradle 9 will not start on it. Delete this and the tag
-# still tags, still pushes, and still appears on JitPack -- it just publishes nothing, and the failure surfaces
-# downstream as an unresolvable dependency rather than as a broken release here.
-jdk:
-  - openjdk17

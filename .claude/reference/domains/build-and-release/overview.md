@@ -21,15 +21,17 @@ Read this before opening any PR that changes published code, before changing any
 
 **Partial re-verify 2026-10-16 (branch `claude/auto-tag-release`):** `publish.yml` was rewritten to publish and tag on merge, and `version-check.yml` added. Only the "Merging releases" section and its citations were rewritten from them; everything else is carried forward from the 2026-09-04 pass, which `verified:` still refers to.
 
+**Partial re-verify 2026-10-24 (branch `claude/remove-stripe`):** every `kgdfw-common-plugin.gradle.kts` citation was re-read against that file after its JitPack and oss.sonatype repositories were removed. Nothing else was.
+
 ## Observations
 
 ### Coordinates and what gets published
 
 - [fact] The group is `com.runt9.kgdfw`, set in `gradle.properties:5`.
-- [fact] The publication sets `artifactId = project.name` and takes `from(components["java"])`, so each module publishes as `com.runt9.kgdfw:<module name>` (`kgdfw-common-plugin.gradle.kts:95-100`).
-- [fact] The repository is `https://maven.pkg.github.com/Runt9-Productions/kotlin-gamedev-framework`, declared once in the shared convention plugin rather than per module (`kgdfw-common-plugin.gradle.kts:79-93`).
+- [fact] The publication sets `artifactId = project.name` and takes `from(components["java"])`, so each module publishes as `com.runt9.kgdfw:<module name>` (`kgdfw-common-plugin.gradle.kts:93-98`).
+- [fact] The repository is `https://maven.pkg.github.com/Runt9-Productions/kotlin-gamedev-framework`, declared once in the shared convention plugin rather than per module (`kgdfw-common-plugin.gradle.kts:77-91`).
 - [fact] The same plugin applies `java-test-fixtures`, `withJavadocJar()` and `withSourcesJar()` (`kgdfw-common-plugin.gradle.kts:9,17-18`), so the `java` component a publication is built from carries the test-fixtures variant alongside the main jar.
-- [trap] `repositories { maven("https://jitpack.io") }` at `kgdfw-common-plugin.gradle.kts:28` is a **dependency-resolution** repository, not a publish target. Publishing moved off JitPack; seeing that line is not evidence it did not.
+- [fact] Dependencies resolve from `mavenCentral()` alone (`kgdfw-common-plugin.gradle.kts:25-27`). JitPack and oss.sonatype were dropped in 2.0.12 along with `com.github.raeleus.stripe:freetype`, the one dependency that needed JitPack; nothing used its classes, since `ParameterAvailableFreeTypeSkin` reads FreeType fonts from skin JSON on plain libGDX.
 
 ### Merging releases; the file is the version
 ### Merging releases; the file is the version
@@ -47,10 +49,10 @@ Read this before opening any PR that changes published code, before changing any
 
 ### Credentials
 
-- [fact] The repository's credentials read Gradle properties `gpr.user` / `gpr.key`, falling back to the `GITHUB_ACTOR` / `GITHUB_TOKEN` environment variables (`kgdfw-common-plugin.gradle.kts:87-90`).
-- [trap] `gpr.key` must be a **classic** token. The comment at `kgdfw-common-plugin.gradle.kts:83-85` records that the Maven registry rejects fine-grained tokens with a 401, which reads as a wrong password rather than as an unsupported token type #silent-failure.
+- [fact] The repository's credentials read Gradle properties `gpr.user` / `gpr.key`, falling back to the `GITHUB_ACTOR` / `GITHUB_TOKEN` environment variables (`kgdfw-common-plugin.gradle.kts:85-88`).
+- [trap] `gpr.key` must be a **classic** token. The comment at `kgdfw-common-plugin.gradle.kts:81-83` records that the Maven registry rejects fine-grained tokens with a 401, which reads as a wrong password rather than as an unsupported token type #silent-failure.
 - [risk] Consuming a published version is reported to require a classic token with `read:packages` even though the package is public, with anonymous reads failing as the same misleading 401. Nothing in this repository establishes that — it is registry behavior observed downstream, recorded here because the failure mode is indistinguishable from a bad credential.
-- [fact] In Actions the built-in `GITHUB_TOKEN` works for reading instead, but only once the consuming repository has been granted read access to the package (same comment, `kgdfw-common-plugin.gradle.kts:85`).
+- [fact] In Actions the built-in `GITHUB_TOKEN` works for reading instead, but only once the consuming repository has been granted read access to the package (same comment, `kgdfw-common-plugin.gradle.kts:83`).
 
 ### Waiting on a publish
 
