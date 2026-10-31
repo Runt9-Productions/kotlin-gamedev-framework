@@ -1,5 +1,5 @@
 [versions]
-kotlinxSerialization = "1.11.0"
+kotlinxSerialization = "1.12.0"
 kotlinxCoroutines = "1.11.0"
 # KTX's newest release (1.13.1-rc1) officially targets libGDX 1.13.1, so anything past that is ahead of what KTX
 # was built against. Verify by booting the game, not by a green compile -- a KTX/libGDX mismatch surfaces as a
@@ -8,9 +8,9 @@ gdx = "1.14.2"
 gdxAi = "1.8.2"
 ktx = "1.13.1-rc1"
 korlibs = "4.0.10"
-kotest = "6.2.4"
+kotest = "6.2.6"
 junitPlatformLauncher = "6.1.3"
-ktor = "3.5.2"
+ktor = "3.6.0"
 # IntelliJ reports this as unused and is wrong: kgdfw-common-plugin reads it via VersionCatalogsExtension,
 # which the IDE cannot see.
 jacoco = "0.8.15"
@@ -24,8 +24,8 @@ kotlinx-serialization-cbor = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
 gdx-ai = { module = "com.badlogicgames.gdx:gdx-ai", version.ref = "gdxAi" }
 kotlin-logging = { module = "io.github.oshai:kotlin-logging-jvm", version = "8.0.4" }
-slf4j-api = { module = "org.slf4j:slf4j-api", version = "2.0.18" }
-logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.6.3" }
+slf4j-api = { module = "org.slf4j:slf4j-api", version = "2.0.20" }
+logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.6.5" }
 ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
 ktor-server-cio = { module = "io.ktor:ktor-server-cio", version.ref = "ktor" }
 ktor-server-status-pages = { module = "io.ktor:ktor-server-status-pages", version.ref = "ktor" }
