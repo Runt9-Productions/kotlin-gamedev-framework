@@ -1,9 +1,9 @@
 [versions]
-kotlin = "2.4.10"
-kover = "0.9.9"
+kotlin = "2.4.21"
+kover = "0.9.11"
 # Below 0.53.0 this is broken on Gradle 9.3+ (calls a LenientConfiguration method that was removed) and
 # `dependencyUpdates` fails outright.
-versionsPlugin = "0.61.0"
+versionsPlugin = "0.66.0"
 
 [libraries]
 kotlinPlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
