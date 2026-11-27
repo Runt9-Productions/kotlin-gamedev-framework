@@ -4,10 +4,11 @@ Kotlin Game Development FrameWork. Hand-written, single-maintainer, consumed by 
 
 ## The knowledge base
 
-`.claude/reference/` is an agent-first knowledge base, tracked in git. **Read `.claude/reference/README.md`
-before adding to it** — it is a spec, not a suggestion, and `_validate.py` enforces it.
+`.claude/reference/` is an agent-first knowledge base, tracked in git. **Load the `reference-kb` skill and read
+`.claude/reference/README.md` before adding to it.** The skill carries the format and how to write a note; the README
+adds this repository's conventions.
 
-It is relevance-triggered: check it before reading code on a topic it covers, and expect it to tell you which code to read and what is surprising about it. **Search it with the basic-memory MCP server's `search_notes`** (project `kgdfw-kb`). It matches meaning rather than words. An existing note is edited with `edit_note`, never by writing the file; a hook enforces this. Current entry points:
+It is relevance-triggered: check it before reading code on a topic it covers, and expect it to tell you which code to read and what is surprising about it. **Search it with the basic-memory MCP server's `search_notes`** (project `kgdfw-kb`). It matches meaning rather than words. Current entry points:
 
 - `domains/interception/overview.md` — hooks, contexts, exact-class matching, holders
 - `domains/event-and-state/overview.md` — EventBus, the named single-thread contexts, `GameStateService`
@@ -19,9 +20,10 @@ It is relevance-triggered: check it before reading code on a topic it covers, an
 Two things bind:
 
 - **Absence from the KB is never evidence about the code.** It means nobody has needed that yet — go read the source.
-- **A `[fact]` is something you read in the code, this run.** Not a search result, not a design doc, not memory. See "Read the damn code" in the README; it exists because that rule was broken and produced a note that was confident, well-formatted, and false.
+- **A `[fact]` is something you read in the code, this run.** Not a search result, not a design doc, not memory. See "What a note is for" in the reference-kb format. Breaking this rule once produced a note that was confident, well-formatted, and false.
 
-Run `python3 .claude/reference/_validate.py --stale` before finishing any KB work. A clean exit covers errors only — read the warnings.
+Run the reference-kb plugin's validator, `python3 <reference-kb plugin>/skills/reference-kb/scripts/validate.py
+--root .claude/reference --stale`, before finishing any KB work. A clean exit covers errors only — read the warnings.
 
 ## Core mechanics — the ones that fail silently
 

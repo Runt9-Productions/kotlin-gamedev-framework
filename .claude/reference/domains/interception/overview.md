@@ -4,7 +4,6 @@ type: note
 permalink: interception/overview
 tags: [interception, effects, extensibility]
 verified: 2026-08-13
-branch: master
 coverage: partial
 sources:
   - core/src/main/kotlin/com/runt9/kgdf/intercept/Interceptor.kt

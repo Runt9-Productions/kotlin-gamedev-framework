@@ -4,7 +4,6 @@ type: note
 permalink: seeded-randomizer/overview
 tags: [ rng, persistence, serialization, determinism ]
 verified: 2026-09-16
-branch: claude/seeded-randomizer-step-count
 coverage: partial
 sources:
   - core/src/main/kotlin/com/runt9/kgdf/util/SeededRandomizer.kt

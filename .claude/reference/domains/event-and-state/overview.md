@@ -4,7 +4,6 @@ type: note
 permalink: event-and-state/overview
 tags: [ eventbus, async, state, persistence ]
 verified: 2026-10-03
-branch: master
 coverage: partial
 sources:
   - core/src/main/kotlin/com/runt9/kgdf/event/EventBus.kt

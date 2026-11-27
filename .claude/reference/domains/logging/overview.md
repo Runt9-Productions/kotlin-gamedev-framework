@@ -4,7 +4,6 @@ type: note
 permalink: logging/overview
 tags: [ logging, testing, settings ]
 verified: 2026-08-14
-branch: testability-and-testing-refactor
 coverage: partial
 sources:
   - core/src/main/kotlin/com/runt9/kgdf/log/Logger.kt
