@@ -161,7 +161,8 @@ paths and names no consuming project.
 - With only the remote half present there is no standing grant: commit, push and open the pull request when the owner
   says so, or for the whole run where the owner has granted that.
 - Pull request: `gh pr create --draft --base master --body-file <file>`, two or three sentences on what changed and
-  why. It leaves draft only on the owner's explicit approval. Merging is the owner's, and it releases.
+  why. It is marked ready (`gh pr ready <pr>`, as the bot) when it is handed to the owner for review, since ready is
+  what tells the owner it is theirs to review (owner, 2026-11-27). Merging is the owner's, and it releases.
 
 ## 11. Hand-off
 
