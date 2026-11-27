@@ -13,6 +13,8 @@ It is relevance-triggered: check it before reading code on a topic it covers, an
 - `domains/interception/overview.md` — hooks, contexts, exact-class matching, holders
 - `domains/event-and-state/overview.md` — EventBus, the named single-thread contexts, `GameStateService`
 - `domains/view-binding/overview.md` — `ViewModel.Binding`, `Updatable`, the binding helpers
+- `domains/seeded-randomizer/overview.md` — `rngCounter` must count generator steps, and why an intact round-trip proves nothing
+- `domains/logging/overview.md` — log calls in hot paths, swapping the sink, capturing output in a test
 - `domains/api-harness/overview.md` — the development HTTP harness: controllers, the screen registry, the render-thread hop
 - `domains/headless/overview.md` — why "no LibGDX `Application`" is not the same as headless, and which calls still need a display
 - `domains/build-and-release/overview.md` — publishing to GitHub Packages, and why every PR that changes published code bumps the version
