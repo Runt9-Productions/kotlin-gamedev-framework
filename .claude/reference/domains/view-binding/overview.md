@@ -4,7 +4,6 @@ type: note
 permalink: view-binding/overview
 tags: [view-binding, mvvm, ui]
 verified: 2026-08-13
-branch: master
 coverage: partial
 sources:
   - core/src/main/kotlin/com/runt9/kgdf/ui/viewModel/ViewModel.kt

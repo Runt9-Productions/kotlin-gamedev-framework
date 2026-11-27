@@ -4,7 +4,6 @@ type: note
 permalink: headless/overview
 tags: [ settings, testing, lwjgl ]
 verified: 2026-09-04
-branch: master
 coverage: partial
 sources:
   - core/src/main/kotlin/com/runt9/kgdf/settings/PlayerSettings.kt
