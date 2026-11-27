@@ -101,7 +101,7 @@ paths and names no consuming project.
   them. Unconfirmed: adapted from the harness repository's watch and not yet run here.
 - Unconfirmed: the bot cannot rerun a job, since its App lacks Actions write (true of the same App in the harness
   repository); the owner reruns, or the next push starts a new run.
-- Duration: a `PR` run took about 1 to 3 minutes (the last five runs that started, 2026-10-24 to 2026-11-07). After a
+- Duration: a `PR` run takes about 1 to 3 minutes. After a
   merge, the `publish` run must finish before a consumer can resolve the new version; the packages API showing it is
   not proof (`domains/build-and-release/overview.md`).
 
@@ -162,7 +162,7 @@ paths and names no consuming project.
   says so, or for the whole run where the owner has granted that.
 - Pull request: `gh pr create --draft --base master --body-file <file>`, two or three sentences on what changed and
   why. It is marked ready (`gh pr ready <pr>`, as the bot) when it is handed to the owner for review, since ready is
-  what tells the owner it is theirs to review (owner, 2026-11-27). Merging is the owner's, and it releases.
+  what tells the owner it is theirs to review. Merging is the owner's, and it releases.
 
 ## 11. Hand-off
 

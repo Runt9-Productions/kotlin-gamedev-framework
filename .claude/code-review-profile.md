@@ -182,23 +182,21 @@ These names are public by design and are not leaks: the `Runt9-Productions` orga
 `kotlin-gamedev-framework` repository, the `com.runt9.kgdfw` group and the `com.runt9.kgdf` package, the
 `Runt9 Productions` company default in `GameConfig`, and the `runt9-claude-bot[bot]` name and its noreply address.
 
-Proposed by the lead session, not yet ruled by the owner: the commit identities already in this repository's history
+Proposed, not yet ruled by the owner: the commit identities already in this repository's history
 are public too.
 
 ## Rulings that are not findings
 
-Each was decided by the owner, on the date shown where one was recorded. Report one only when the diff brings
-something the ruling did not account for.
+Each is an owner ruling. Report one only when the diff brings something the ruling did not account for.
 
 - The `Injector` stays a process-global `object`. Refactoring it, or assuming the container can be reset between
   tests, has been proposed and rejected repeatedly: it would ease testing and make automatic wiring worse.
-  (2026-08-15)
 - Finding no callers for `ServiceAsync` or `updateAsync` is not grounds for deleting them: they exist for real-time
   consumers (`domains/event-and-state/overview.md`).
 - `WorkSource.pending` is `Flow<Int>`, not `StateFlow<Int>` (`domains/event-and-state/overview.md`).
 - The tests run in a job without the write token, and the `publish` job alone holds `packages: write` and
-  `contents: write`. (2026-10-24)
-- Dependabot pull requests skip the `version` job, and all gradle updates share one group. (2026-10-24)
+  `contents: write`.
+- Dependabot pull requests skip the `version` job, and all gradle updates share one group.
 
 ## Other callers
 
