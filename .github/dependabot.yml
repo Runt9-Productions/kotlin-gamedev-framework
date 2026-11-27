@@ -1,5 +1,10 @@
 version: 2
-
+# One pull request a week carries every ecosystem's updates, so they merge together rather than each waiting on a
+# rebase after the one before.
+multi-ecosystem-groups:
+  weekly:
+    schedule:
+      interval: weekly
 updates:
   - package-ecosystem: gradle
     # /buildSrc as well as /: Dependabot reads gradle/libs.versions.toml only at a configured directory's own root,
@@ -7,18 +12,13 @@ updates:
     directories:
       - /
       - /buildSrc
-    schedule:
-      interval: weekly
+    multi-ecosystem-group: weekly
+    patterns: ["*"]
     cooldown:
       default-days: 7
-    # Dependabot still opens one PR per directory for a group, so this is at most two a week, not one.
-    groups:
-      gradle:
-        patterns: ['*']
-
   - package-ecosystem: github-actions
     directory: /
-    schedule:
-      interval: weekly
+    multi-ecosystem-group: weekly
+    patterns: ["*"]
     cooldown:
       default-days: 7
