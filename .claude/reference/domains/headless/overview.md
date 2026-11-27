@@ -3,7 +3,7 @@ title: Running Without a Display
 type: note
 permalink: headless/overview
 tags: [ settings, testing, lwjgl ]
-verified: 2026-09-04
+verified: 2026-11-27
 coverage: partial
 sources:
   - core/src/main/kotlin/com/runt9/kgdf/settings/PlayerSettings.kt
@@ -38,7 +38,7 @@ Read this before assuming a consumer's test harness, CI job, or headless tool ca
 
 ### Nothing tests this
 
-- [fact] `core/src/test/kotlin/com/runt9/kgdf` holds test packages for `log`, `input`, `event` and `async` only. There is no test covering `settings`, and therefore none covering the fallback.
+- [fact] `core/src/test/kotlin/com/runt9/kgdf` holds test packages for `async`, `event`, `ext`, `game`, `input`, `log`, `service`, `ui` and `util`, and none for `settings`. No test in `core` or `api` calls `defaultPlayerSettings()` or `getDisplayMode()`, so none covers the fallback.
 - [risk] The fallback can therefore regress silently: removing the `try`/`catch` breaks no test, and the failure appears only in a consumer's display-less environment. Recorded as a gap, not a fix.
 - [trap] **Unsetting `DISPLAY` alone does not reproduce the failure on WSL**, which makes it easy to believe an unverified fix has been verified. Reproducing it needs `DISPLAY`, `WAYLAND_DISPLAY`, `XDG_RUNTIME_DIR`, `XDG_SESSION_TYPE`, `XDG_SESSION_CLASS` and `WSL2_GUI_APPS_ENABLED` stripped together; `XDG_RUNTIME_DIR` was the one still letting GLFW find a compositor #measured (measured during the fallback work; not re-run in this pass).
 

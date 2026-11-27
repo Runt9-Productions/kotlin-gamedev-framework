@@ -16,8 +16,8 @@ import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Driven through [TestAsyncFactory] rather than a real thread, which is the property the queue exists to give its
- * consumers: `EventBus` and `MetricsService` both take their context from `AsyncFactory` through this queue, so a
- * test scheduler drains them deterministically.
+ * users: `EventBus`, and any consumer service built on the queue, take their context from `AsyncFactory` through
+ * it, so a test scheduler drains them deterministically.
  */
 class AsyncWorkQueueTest : FunSpec({
     class Handler(private val onEach: (String) -> Unit = {}) {
@@ -117,8 +117,8 @@ class AsyncWorkQueueTest : FunSpec({
         }
     }
 
-    // The live case is MetricsService, whose stop() runs on every exit from the run screen: cancelling mid-POST
-    // loses the metric and still counts it as handled.
+    // A service's stop() can run on every exit from a screen, not only at shutdown: cancelling mid-request loses
+    // the item and still counts it as handled.
     test("stop lets the in-flight item finish rather than cancelling it mid-handle").config(coroutineTestScope = true) {
         runTest {
             val order = CopyOnWriteArrayList<String>()

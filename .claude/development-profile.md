@@ -64,8 +64,8 @@ paths and names no consuming project.
 
 ## 5. Agents
 
-- Implementer, verifier and research agents: **none adopted.** The repository has no `.claude/agents/`, so `develop`
-  step 4 stops and points at the `delegation` plugin's `templates/engineer.md` until one is copied in and filled.
+- Implementer, verifier and research agents: **none adopted.** `.claude/agents/` holds only the review setup
+  (section 9), so `develop` step 4 stops and points at the `delegation` plugin's `templates/engineer.md` until one is copied in and filled.
 - Doc writer: `reference-kb:kb-writer` for knowledge base notes.
 - Comment sweep: `develop:comment-sweeper`.
 - Ramp-up: not measured.
@@ -124,10 +124,17 @@ paths and names no consuming project.
 
 ## 9. Review
 
-- Code review: **no `.claude/code-review-profile.md` yet**, so the `lens-review` skill cannot run here. The harness
-  migration's review phase adds the profile and kgdfw's own lenses.
-- Test review: no `.claude/test-review-profile.md` yet; the same phase adds one. Until then `develop` step 7 skips
-  the test review.
+- Code review: `/lens-review`, set up by `.claude/code-review-profile.md` and the agent in
+  `.claude/agents/lens-review/lens-review.md`. Its lenses are in `.claude/agents/lens-review/reference/`: the six the
+  plugin ships, plus kgdfw's `framework-api-shape`, `framework-contract`, `framework-lifecycle`, `kotlin-idiom` and
+  `public-leak`. The profile's "Lenses" section says which run by default and which by routing. The run writes
+  `review.md`, and `review-payload.json` for a pull request, under `.claude/output/code-review/`, and never posts;
+  the session posts the payload afterwards.
+- Test review: `/test-review`, set up by `.claude/test-review-profile.md`, with a reference per module in
+  `.claude/agents/references/` (`test-review-core.md`, `test-review-api.md`). It leaves its test fixes unstaged.
+- Both skills read their profile and lenses by path relative to the working directory, and `/lens-review` forks into
+  the project's `lens-review` agent, so run them from a session started in the worktree. Unconfirmed: neither has yet
+  completed a run here.
 - External reviewer: none. The owner reviews.
 - Posting: the bot, with `GH_TOKEN` (section 1). No tooling posts images; evidence is text.
 - Public text: pull request bodies, reviewer guides and replies say what a change does and why, never where a rule
@@ -154,7 +161,8 @@ paths and names no consuming project.
 - With only the remote half present there is no standing grant: commit, push and open the pull request when the owner
   says so, or for the whole run where the owner has granted that.
 - Pull request: `gh pr create --draft --base master --body-file <file>`, two or three sentences on what changed and
-  why. It leaves draft only on the owner's explicit approval. Merging is the owner's, and it releases.
+  why. It is marked ready (`gh pr ready <pr>`, as the bot) when it is handed to the owner for review, since ready is
+  what tells the owner it is theirs to review (owner, 2026-11-27). Merging is the owner's, and it releases.
 
 ## 11. Hand-off
 
