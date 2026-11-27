@@ -45,7 +45,7 @@ paths and names no consuming project.
   worktrees. A new worktree needs no untracked file copied in.
 - Renaming the branch: what it changes about cleaning a worktree up has not been measured here.
 - Shared with the main checkout: the git config (the `claude.*` keys and the credential helper) and `.git/hooks/`, so
-  the `pre-commit` and `pre-push` hooks (section 10) run in every worktree. Writes through a worktree work.
+  a worktree commits and pushes as the main checkout does (section 10). Writes through a worktree work.
 - Working directory: `.claude/output/<slug>/` in the worktree, ignored by the tracked `.gitignore`. It is scratch
   and goes when the worktree does, so nothing that must last is kept there, and no comment or doc points at it.
 - Fresh session: a session's language server stays rooted where the session started, so a build session is started
@@ -83,8 +83,8 @@ paths and names no consuming project.
   `--rerun` forces only the last task named past UP-TO-DATE, so put it on each task.
 - No formatter or linter runs: `detekt.yml` sits at the root, but no build file applies detekt.
 - Never run locally: none is barred. The tests need no display; CI runs them on `ubuntu-latest` with none.
-- Pre-push: the `pre-push` hook in `.git/hooks/` refuses refs outside `claude/` and commits not authored by the bot.
-  It runs no leak scan. What CI fails that is cheapest to catch first: a missing `version` bump, and an invisible
+- Pre-push: push only `claude/` refs, carrying commits the bot authored (section 10). What CI fails that is cheapest
+  to catch first: a missing `version` bump, and an invisible
   character (zero-width, bidirectional, byte-order mark or Unicode tag) in a changed file under `.claude/` or in a
   `CLAUDE.md`, which the `guard` job checks.
 - CI watch: CI runs only on pull requests (workflow `PR`, `.github/workflows/pr.yml`), so open the pull request
@@ -139,27 +139,24 @@ paths and names no consuming project.
 - Posting: the bot, with `GH_TOKEN` (section 1). No tooling posts images; evidence is text.
 - Public text: pull request bodies, reviewer guides and replies say what a change does and why, never where a rule
   came from, and name no consuming project. Unconfirmed: whether to run them through the installed harness's
-  `leak-scan/review-text.sh` before posting, as the harness repository does; no hook or CI job here scans them.
+  `leak-scan/review-text.sh` before posting, as the harness repository does.
 
 ## 10. Commit and push
 
 - Identity: the GitHub App bot `runt9-claude-bot[bot]`, its name and email in `git config claude.botName` and
   `claude.botEmail`. Commit with
   `git -c user.name="$(git config claude.botName)" -c user.email="$(git config claude.botEmail)" commit`, and pass the
-  same pair to every command that writes a commit (`merge`, `cherry-pick`, `revert`, `rebase`). The `pre-commit` hook
-  refuses any other author or committer when run from an agent session.
+  same pair to every command that writes a commit (`merge`, `cherry-pick`, `revert`, `rebase`), so the bot is both
+  author and committer.
 - Messages and trailers: the trailer lines the session supplies. A message states the change and why, and names no
   consuming project or its tickets.
-- Remote: `bot`, the HTTPS remote the bot pushes through. `origin` is SSH and the owner's. The bot's App has no
-  `workflows` permission, so a push adding a commit that changes `.github/workflows/`, a merge of `master` that brings
-  one in included, is the owner's to make (`domains/build-and-release/overview.md`).
-- Guards: no guard hook stops destructive git commands such as a force push or `git reset --hard`; `pre-push` checks
-  only the branch prefix and authorship. The remote rules hold: the bot pushes only `claude/**`; `master` takes
-  changes only by pull request, with no force push or deletion, and only with `gate` passing on an up-to-date branch;
-  the "Only Admin Tagging" ruleset restricts every tag. Unconfirmed: who bypasses these rulesets, since the bot's
-  token cannot read their bypass lists.
-- With only the remote half present there is no standing grant: commit, push and open the pull request when the owner
-  says so, or for the whole run where the owner has granted that.
+- Remote: `bot`, the HTTPS remote the bot pushes through. `origin` is SSH and the owner's. A push adding a commit
+  that changes `.github/workflows/`, a merge of `master` that brings one in included, is the owner's to make
+  (`domains/build-and-release/overview.md`).
+- Pushes: commit, push and open the pull request only when the owner says so, or for the whole run where the owner
+  has granted that. Push only `claude/**` branches. Never force push, delete a branch or tag, run `git reset --hard`
+  or another destructive git command unless the owner's message names it. `master` takes changes only by pull
+  request, with `gate` passing on an up-to-date branch, and tags are the owner's.
 - Pull request: `gh pr create --draft --base master --body-file <file>`, two or three sentences on what changed and
   why. It is marked ready (`gh pr ready <pr>`, as the bot) when it is handed to the owner for review, since ready is
   what tells the owner it is theirs to review. Merging is the owner's, and it releases.
