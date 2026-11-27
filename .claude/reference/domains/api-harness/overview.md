@@ -4,7 +4,6 @@ type: note
 permalink: api-harness/overview
 tags: [ api, harness, rendering, testing ]
 verified: 2026-09-07
-branch: claude/226-tier-b
 coverage: partial
 sources:
   - core/src/main/kotlin/com/runt9/kgdf/game/PostRender.kt

@@ -4,7 +4,6 @@ type: note
 permalink: build-and-release/overview
 tags: [ build, publishing, release ]
 verified: 2026-10-24
-branch: claude/ci-hardening
 coverage: partial
 sources:
   - gradle.properties

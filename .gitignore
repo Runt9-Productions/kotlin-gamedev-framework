@@ -8,5 +8,5 @@ build/
 !**/src/test/**/build/
 out/
 
-# Python bytecode from .claude/reference/_validate.py
-__pycache__/
+# Agent scratch: per-change working files that never ship.
+.claude/output/
