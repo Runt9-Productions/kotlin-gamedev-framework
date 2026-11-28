@@ -101,6 +101,11 @@ jobs:
   guard:
     runs-on: ubuntu-latest
 
+    env:
+      # The commit of Runt9-Productions/runt9-claude-harness whose KB validator runs. Moving it can change what the
+      # validator accepts, so move it in a PR of its own and expect to fix notes in the same PR.
+      HARNESS_SHA: 441e5447dd576cdec037bf2137600209e29a5dc6
+
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -129,6 +134,47 @@ jobs:
             1) echo "${#files[@]} changed file(s) checked, none holds an invisible character." ;;
             *) echo "::error::grep failed (exit $status), so the files were not checked."; exit 1 ;;
           esac
+
+      - name: Check out the pinned harness
+        if: ${{ !cancelled() }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Runt9-Productions/runt9-claude-harness
+          ref: ${{ env.HARNESS_SHA }}
+          path: .harness
+          persist-credentials: false
+
+      # The runner image lists no PyYAML for its system python3, which is externally managed (PEP 668), so the
+      # validator gets a venv.
+      - name: Install the KB validator's PyYAML
+        if: ${{ !cancelled() }}
+        run: |
+          python3 -m venv "$RUNNER_TEMP/kb-venv"
+          "$RUNNER_TEMP/kb-venv/bin/pip" install --quiet --require-hashes --only-binary :all: --no-deps \
+            -r .github/scripts/requirements.txt
+
+      # Exits 2 when the root is missing or holds no notes, so a KB that moved or emptied fails here.
+      - name: KB notes follow the format
+        if: ${{ !cancelled() }}
+        run: |
+          "$RUNNER_TEMP/kb-venv/bin/python" .harness/plugins/reference-kb/skills/reference-kb/scripts/validate.py \
+            --root .claude/reference
+
+      # In the merge checkout HEAD^1 is the base and HEAD^2 the PR's head, so the range is every commit reachable from
+      # the head and not the base. That includes the commits of any branch merged into the head that the base lacks,
+      # so a note those commits made stale fails here as if the PR had changed its sources.
+      # Dependabot's PRs edit sourced files (version pins, workflows) and cannot re-verify a note, so there the
+      # result is reported in the summary and cannot fail the job.
+      - name: KB notes re-verified where this PR changed their sources
+        if: ${{ !cancelled() }}
+        continue-on-error: ${{ github.event.pull_request.user.login == 'dependabot[bot]' }}
+        run: |
+          status=0
+          printf '### KB notes re-verified\n\n```\n' >> "$GITHUB_STEP_SUMMARY"
+          "$RUNNER_TEMP/kb-venv/bin/python" .harness/plugins/reference-kb/skills/reference-kb/scripts/validate.py \
+            --root .claude/reference --stale-in HEAD^1..HEAD^2 | tee -a "$GITHUB_STEP_SUMMARY" || status=$?
+          printf '```\n' >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
 
   # Runs even when a job it needs failed: with a plain `needs` this job would be skipped, and GitHub passes a
   # skipped required check. A job skipped by its own `if` (tests on a docs-only PR) is fine.
