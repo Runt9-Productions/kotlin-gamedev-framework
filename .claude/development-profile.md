@@ -84,9 +84,10 @@ paths and names no consuming project.
 - No formatter or linter runs: `detekt.yml` sits at the root, but no build file applies detekt.
 - Never run locally: none is barred. The tests need no display; CI runs them on `ubuntu-latest` with none.
 - Pre-push: push only `claude/` refs, carrying commits the bot authored (section 10). What CI fails that is cheapest
-  to catch first: a missing `version` bump, and an invisible
+  to catch first: a missing `version` bump; an invisible
   character (zero-width, bidirectional, byte-order mark or Unicode tag) in a changed file under `.claude/` or in a
-  `CLAUDE.md`, which the `guard` job checks.
+  `CLAUDE.md`; and a knowledge base note that breaks the format or whose `sources` the pull request changed without
+  re-verifying it. The `guard` job checks the last two, the notes with the validator run in section 4.
 - CI watch: CI runs only on pull requests (workflow `PR`, `.github/workflows/pr.yml`), so open the pull request
   before watching. With `GH_TOKEN` set (section 1) and `sha` the pushed head commit,
 
